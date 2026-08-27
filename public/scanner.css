@@ -1,0 +1,66 @@
+.scanner-brand{text-decoration:none}
+.scanner-card{padding-bottom:16px}
+.scanner-actions{margin-bottom:14px}
+.document-pages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.document-page{position:relative;border:1px solid var(--line);border-radius:12px;background:#fbfdfe;overflow:hidden;padding:8px}
+.document-page img{display:block;width:100%;aspect-ratio:210/297;object-fit:contain;background:#e9eef0;border-radius:7px}
+.document-page .page-number{font-size:11px;font-weight:800;color:var(--blue);margin:7px 3px 0}
+.document-page .page-remove{position:absolute;right:12px;top:12px;border:0;border-radius:50%;background:#fff;color:var(--danger);width:27px;height:27px;font-size:18px;cursor:pointer;box-shadow:0 1px 5px #12304722;z-index:20;pointer-events:auto;touch-action:manipulation}
+.document-page .page-title{display:block;width:100%;border:1px solid #cfdbe0;border-radius:7px;margin-top:6px;padding:7px 8px;font:inherit;font-size:12px;color:var(--ink);background:#fff}
+.empty-pages{padding:22px 10px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed #b9d9e9;border-radius:10px;grid-column:1/-1}
+.processing-panel{border:1px solid var(--line);border-radius:11px;background:#f8fbfc;padding:12px;margin-bottom:14px}
+.processing-title{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:10px}
+.processing-title span{font-size:11px;color:var(--muted);font-weight:600}
+.processing-options{display:flex;gap:8px;flex-wrap:wrap}
+.processing-options label{margin:0;padding:8px 10px;border:1px solid #cfdbe0;border-radius:8px;background:#fff;font-size:12px;cursor:pointer}
+.processing-options input{display:inline-block;width:auto;margin:0 5px 0 0;padding:0}
+.range-label{display:flex!important;align-items:center;gap:10px;margin:12px 0 0!important;font-size:12px!important}
+.range-label input[type=range]{margin:0;flex:1;padding:0;border:0}
+.range-label span{min-width:34px;text-align:right;color:var(--blue)}
+.compact-hint{margin:9px 0 0;font-size:11px}
+.page-mode{font-size:10px;color:var(--muted);margin:5px 3px 0}
+.page-warning{font-size:10px;color:#8a5b00;background:#fff6dc;border-radius:6px;padding:5px 6px;margin-top:6px}
+@media(max-width:520px){.document-pages{grid-template-columns:1fr 1fr}.document-page{padding:6px}.document-page .page-remove{right:9px;top:9px}.processing-options label{flex:1;min-width:0;text-align:center}}
+.scan-review{border:0;border-radius:16px;padding:0;max-width:min(96vw,980px);max-height:94vh;background:#fff;box-shadow:0 20px 80px #102a3a66}.scan-review::backdrop{background:#102a3acc}.scan-review-shell{padding:14px}.review-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.review-head h2{margin:0;font-size:18px}.review-close{border:0;background:transparent;font-size:28px;cursor:pointer}.review-hint{margin:5px 0 10px;color:var(--muted);font-size:12px}.review-canvas-wrap{display:flex;justify-content:center;align-items:center;background:#15232b;border-radius:12px;min-height:220px;padding:8px;overflow:hidden}.review-canvas{display:block;max-width:100%;touch-action:none;border-radius:4px}.review-status{font-size:12px;color:var(--blue);min-height:18px;margin:8px 0}.review-actions{display:flex;gap:10px}.review-actions button{flex:1;border:0;border-radius:9px;padding:12px;font-weight:800;cursor:pointer}.review-cancel{background:#edf2f4;color:var(--ink)}.review-confirm{background:var(--blue);color:#fff}
+
+.file-button{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}.file-picker{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important;margin:0!important;padding:0!important;border:0!important;display:block!important}.file-button:focus-within{outline:3px solid #63d0ff;outline-offset:2px}
+.capture-button{appearance:none;-webkit-appearance:none}
+
+/* Scanner v8: modal próprio, compatível com Safari/iOS/Android/desktop. */
+body.scanner-modal-open{overflow:hidden;overscroll-behavior:none}
+.scan-review{position:fixed;inset:0;z-index:9999;width:100%;height:100%;padding:0;margin:0;border:0;background:rgba(8,20,29,.94);display:none;align-items:center;justify-content:center;box-sizing:border-box;overscroll-behavior:contain}
+.scan-review.is-open{display:flex}
+.scan-review[hidden]{display:none!important}
+.scan-review-shell{width:min(1100px,100%);height:min(100dvh,100%);box-sizing:border-box;background:#fff;display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+.review-head{flex:0 0 auto}.review-head h2{font-size:20px}
+.review-close{width:44px;height:44px;border-radius:50%;font-size:30px;line-height:1}
+.review-hint{flex:0 0 auto}
+.review-canvas-wrap{flex:1 1 auto;min-height:0;width:100%;padding:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#15232b;touch-action:none;-webkit-user-select:none;user-select:none}
+.review-canvas{max-width:100%;max-height:100%;width:auto;height:auto;touch-action:none;-webkit-user-select:none;user-select:none}
+.review-status{flex:0 0 auto;min-height:20px}
+.review-actions{flex:0 0 auto;padding-bottom:2px}
+.review-actions button{min-height:48px;font-size:15px}
+@media (max-width:600px){.scan-review-shell{width:100%;height:100dvh;border-radius:0}.review-head h2{font-size:18px}.review-hint{font-size:12px;line-height:1.35}.review-actions{gap:8px}.review-actions button{min-height:50px}}
+
+/* Scanner v9: confirmação manual da orientação da página. */
+.document-page.orientation-landscape img{aspect-ratio:297/210}
+.document-page.orientation-portrait img{aspect-ratio:210/297}
+.page-orientation{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:7px 3px 0}
+.page-orientation>span{font-size:10px;color:var(--muted);font-weight:700;margin-right:2px}
+.orientation-btn{border:1px solid #cfdbe0;background:#fff;color:var(--ink);border-radius:7px;padding:6px 8px;font-size:10px;font-weight:800;cursor:pointer}
+.orientation-btn.selected{border-color:var(--blue);background:#e8f6fc;color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+@media(max-width:520px){.page-orientation{gap:4px}.orientation-btn{flex:1;min-width:0;padding:7px 5px}}
+
+/* Scanner v10: PDF A4 com cabeçalho mínimo e aproveitamento máximo da folha. */
+
+/* Scanner v11: pontos de perspectiva robustos em mouse, toque e iOS/Safari. */
+.review-canvas-wrap{position:relative;touch-action:none;-webkit-touch-callout:none;}
+.review-canvas{position:relative;z-index:2;display:block;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:crosshair;}
+
+
+/* Scanner v17: geração e compartilhamento do PDF. */
+.pdf-actions{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+.share-pdf{width:100%;border:1px solid #b9d9e9;background:#fff;color:var(--blue);border-radius:10px;padding:12px 16px;font:inherit;font-weight:800;cursor:pointer;min-height:48px}
+.share-pdf:disabled{opacity:.5;cursor:not-allowed}
+.share-pdf:not(:disabled):active{transform:translateY(1px)}
+@media(min-width:700px){.pdf-actions{max-width:720px;margin-left:auto;margin-right:auto}.pdf-actions .generate{margin-top:0}}

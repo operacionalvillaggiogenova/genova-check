@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123047">
+<meta name="description" content="Blexo-Suite — Pedido de Reembolso">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="reembolso.css">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Blexo-Suite — Reembolso</title>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><span class="brand-mark">↺</span><span>Blexo-<strong>Reembolso</strong></span></a>
+  <div class="top-actions"><span id="offlineStatus" class="online-status">● Online</span></div>
+</header>
+<main>
+<section id="home">
+  <section class="hero compact-hero">
+    <p class="eyebrow">REEMBOLSO</p><h1>Pedidos de reembolso</h1>
+    <p>Registre despesas, comprovantes e justificativas. Gere um PDF pronto para encaminhamento por e-mail.</p>
+  </section>
+  <div class="card form-card home-card">
+    <div class="home-actions"><button id="newBtn" class="generate" type="button">＋ Novo pedido</button><button id="viewBtn" class="secondary-button" type="button">Ver pedidos</button></div>
+    <input id="search" placeholder="Pesquisar por solicitante, justificativa ou número">
+    <div id="list" class="requests-list"></div>
+  </div>
+</section>
+
+<section id="editor" hidden>
+  <section class="hero compact-hero">
+    <p class="eyebrow">PEDIDO DE REEMBOLSO</p><h1 id="editorTitle">Novo pedido</h1>
+    <p>Os dados ficam salvos neste aparelho. O PDF final pode ser encaminhado por e-mail.</p>
+  </section>
+  <div class="editor-actions">
+    <button id="backBtn" class="secondary-button" type="button">← Voltar aos pedidos</button>
+    <button id="saveBtn" class="secondary-button" type="button">▣ Salvar rascunho</button>
+    <button id="newEditorBtn" class="secondary-button" type="button">＋ Novo pedido</button>
+    <button id="pdfBtn" class="generate small-generate" type="button">Gerar e baixar PDF <span>→</span></button>
+  </div>
+
+  <section class="card form-card">
+    <div class="section-title"><span class="step">1</span><h2>Dados do solicitante</h2></div>
+    <input id="requesterName" placeholder="Nome do solicitante *">
+    <input id="requesterRole" placeholder="Cargo / função (opcional)">
+    <input id="requesterEmail" type="email" placeholder="E-mail (opcional)">
+    <div class="two-cols"><label>Data da solicitação<input id="requestDate" type="date"></label><label>Data de referência das despesas<input id="expenseDate" type="date"></label></div>
+  </section>
+
+  <section class="card form-card">
+    <div class="section-title"><span class="step">2</span><h2>Justificativa do pedido</h2></div>
+    <textarea id="justification" rows="5" placeholder="Descreva o motivo e o contexto do pedido de reembolso *"></textarea>
+  </section>
+
+  <section class="card form-card">
+    <div class="section-title"><span class="step">3</span><h2>Despesas</h2><span id="itemCount" class="count-badge">0 itens</span></div>
+    <p class="hint">Informe a despesa, quantidade e valor unitário. O total é calculado automaticamente.</p>
+    <div id="items" class="expense-items"></div>
+    <button id="addItem" class="secondary-button" type="button">＋ Adicionar despesa</button>
+    <div class="total"><span>Total solicitado</span><strong id="total">R$ 0,00</strong></div>
+  </section>
+
+  <p id="feedback" class="feedback" aria-live="polite"></p>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="config.js?v=20"></script>
+<script src="reembolso.js?v=46"></script>
+</body></html>

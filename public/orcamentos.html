@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123047">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="orcamentos.css">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Blexo-Suite — Orçamentos</title>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><span class="brand-mark">₿</span><span>Blexo-<strong>Orçamentos</strong></span></a>
+  <div class="top-actions"><span id="offlineStatus" class="online-status">● Online</span></div>
+</header>
+<main>
+<section id="home">
+  <section class="hero compact-hero">
+    <p class="eyebrow">ORÇAMENTOS</p>
+    <h1>Orçamentos</h1>
+    <p>Crie propostas, registre itens, valores e evidências fotográficas. Tudo permanece salvo para edição.</p>
+  </section>
+  <div class="card form-card">
+    <button id="newBtn" class="generate" type="button">＋ Novo orçamento</button>
+    <input id="search" placeholder="Pesquisar orçamento, cliente ou serviço">
+    <div id="list" class="quotes-list"></div>
+  </div>
+</section>
+
+<section id="editor" hidden>
+  <section class="hero compact-hero">
+    <p class="eyebrow">ORÇAMENTO</p>
+    <h1 id="editorTitle">Novo orçamento</h1>
+    <p>Os dados são salvos automaticamente neste aparelho e podem ser editados depois.</p>
+  </section>
+  <div class="editor-actions">
+    <button id="backBtn" class="secondary-button" type="button">← Voltar aos rascunhos</button>
+    <button id="pdfBtn" class="generate small-generate" type="button">Gerar e baixar PDF <span>→</span></button>
+  </div>
+
+  <section class="card form-card">
+    <div class="section-title"><span class="step">1</span><h2>Cliente</h2></div>
+    <input id="client" placeholder="Nome / empresa">
+    <input id="doc" placeholder="CPF / CNPJ">
+    <input id="phone" placeholder="Telefone / WhatsApp">
+    <input id="email" placeholder="E-mail">
+    <textarea id="address" placeholder="Endereço"></textarea>
+  </section>
+
+  <section class="card form-card">
+    <div class="section-title"><span class="step">2</span><h2>Serviço</h2></div>
+    <input id="title" placeholder="Título do orçamento">
+    <textarea id="description" placeholder="Descrição do serviço"></textarea>
+    <input id="validity" placeholder="Validade da proposta">
+    <input id="deadline" placeholder="Prazo de execução">
+  </section>
+
+  <section class="card form-card">
+    <div class="section-title"><span class="step">3</span><h2>Itens e valores</h2></div>
+    <div id="items"></div>
+    <button id="addItem" class="secondary-button" type="button">＋ Adicionar item</button>
+    <div class="total">Total <strong id="total">R$ 0,00</strong></div>
+    <input id="payment" placeholder="Forma de pagamento">
+  </section>
+
+  <section class="card form-card">
+    <div class="section-title"><span class="step">4</span><h2>Evidências fotográficas</h2></div>
+    <p class="hint">Fotografe defeitos, peças ou locais. Cada foto pode receber uma observação e será reduzida antes de salvar para maior compatibilidade.</p>
+    <div id="groups"></div>
+    <button id="addGroup" class="secondary-button" type="button">＋ Bloco de evidências</button>
+  </section>
+
+  <section class="card form-card">
+    <div class="section-title"><span class="step">5</span><h2>Observações</h2></div>
+    <textarea id="notes" placeholder="Garantia, materiais, condições ou informações adicionais"></textarea>
+  </section>
+  <p id="feedback" class="feedback"></p>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="config.js?v=18"></script>
+<script src="orcamentos.js?v=3"></script>
+</body></html>

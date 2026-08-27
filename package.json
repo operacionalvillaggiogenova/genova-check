@@ -1,0 +1,14 @@
+{
+  "name": "blexo-check",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Blexo Check - Leiturista + Adm-Rateio em Cloudflare Workers, D1 e R2",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "migrate": "wrangler d1 migrations apply blexo-check --remote",
+    "typecheck": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "^4.35.0"
+  }
+}

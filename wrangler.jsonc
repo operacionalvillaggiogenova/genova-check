@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "blexo-check",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-27",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "blexo-check",
+      "database_id": "COLE_AQUI_O_DATABASE_ID_DO_D1",
+      "migrations_dir": "src/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "blexo-check-evidence"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

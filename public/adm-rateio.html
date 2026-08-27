@@ -1,0 +1,20 @@
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123047"><title>Blexo — Adm-Rateio</title>
+<link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="adm-rateio.css"><link rel="icon" type="image/png" href="favicon.png">
+</head><body>
+<header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">₿</span><span>Blexo-<strong>Adm-Rateio</strong></span></a><div class="top-actions"><span id="status" class="online-status">● Online</span></div></header>
+<main class="adm-main">
+<section class="hero compact-hero"><p class="eyebrow">ÁGUA E GÁS</p><h1>Adm-Rateio</h1><p>Conferência das leituras, correções, contas e fechamento mensal. Esta página é separada do aplicativo de campo.</p></section>
+<section class="card admin-toolbar"><div class="toolbar-row"><div class="rateio-tabs"><button data-utility="water" class="active">💧 Água</button><button data-utility="gas">🔥 Gás</button></div><button id="refresh" class="secondary-button">↻ Atualizar</button></div><div id="cycles" class="cycle-list"></div></section>
+<section id="detail" class="card detail-card" hidden>
+  <div class="detail-head"><div><p class="eyebrow" id="detailEyebrow">CICLO</p><h2 id="detailTitle">—</h2><p id="detailMeta" class="hint"></p></div><div class="detail-actions"><a id="pdfLink" class="secondary-button tool-link" hidden target="_blank">PDF de evidências</a><button id="save" class="secondary-button">💾 Salvar alterações</button><button id="closeCycle" class="primary-button">✓ Fechar ciclo</button></div></div>
+  <div class="summary-grid" id="summary"></div>
+  <div class="admin-grid">
+    <div><h3>Dados do rateio</h3><div class="form-grid"><label>Competência<input id="reference" type="month"></label><label>Consumo da fatura<input id="invoiceConsumption" type="number" step="0.01"></label><label>Fator de conversão<input id="factor" type="number" step="0.01"></label><label>Unidades por bloco<input id="units" type="number" min="1" step="1"></label><label>Consumo do condomínio<input id="condoConsumption" type="number" step="0.01"></label><label>Observações<textarea id="notes" rows="2"></textarea></label></div></div>
+    <div><h3>Contas / faturas</h3><div id="costs"></div><button id="addCost" class="secondary-button">＋ Adicionar conta</button></div>
+  </div>
+  <h3 class="section-heading">Leituras</h3><p class="hint">Edite a leitura anterior ou atual. Ao corrigir uma leitura, informe o motivo. A média é calculada sobre o consumo dos blocos.</p><div class="table-wrap"><table id="readingsTable"><thead><tr><th>Bloco</th><th>Anterior</th><th>Atual</th><th>Consumo</th><th>%</th><th>Rateio bloco</th><th>R$/apto</th><th>Média</th><th>Correção</th><th>Motivo</th></tr></thead><tbody></tbody></table></div>
+  <div class="detail-footer"><span id="detailFeedback" class="feedback"></span><span id="closedLabel"></span></div>
+</section>
+</main><script src="cloud-api.js"></script><script src="adm-rateio.js"></script></body></html>
