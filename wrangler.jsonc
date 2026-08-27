@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "blexo-check",
-      "database_id": "COLE_AQUI_O_DATABASE_ID_DO_D1",
+      "database_id": "72b0928af3ba4ad2a024d98ab2d9eeaf",
       "migrations_dir": "src/migrations"
     }
   ],
