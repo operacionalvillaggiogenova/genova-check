@@ -19,3 +19,10 @@ O comando de deploy aplica as migrations remotas do D1 e depois publica o Worker
 - Adm-Rateio: `rateio.blexo.com.br`
 
 Durante testes, o Adm-Rateio também pode ser acessado pelo domínio `*.workers.dev`. Em produção, a intenção é restringir o módulo ao domínio `rateio.blexo.com.br` e posteriormente colocar Cloudflare Access.
+
+
+## IMPORTANTE — Workers Builds
+
+No Cloudflare Workers > Settings > Builds, o **Deploy command** deve ser `npm run deploy` (ou `bun run deploy`). Não use apenas `npx wrangler deploy`, pois isso pula a aplicação das migrations D1.
+
+O repositório pode continuar se chamando `genova-check`. O Worker também usa `genova-check` no `wrangler.jsonc`; o domínio público pode ser personalizado depois.

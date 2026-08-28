@@ -83,3 +83,7 @@ A próxima camada de segurança recomendada é Cloudflare Access para proteger `
 
 ## Deploy Cloudflare
 Use `npm run deploy` no Workers Builds para aplicar as migrations D1 e publicar o Worker.
+
+
+### Deploy no Cloudflare
+O comando de deploy deve ser `npm run deploy`. Ele aplica as migrations do D1 `blexo-suite` remotamente e só depois publica o Worker.

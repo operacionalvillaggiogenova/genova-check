@@ -1,4 +1,4 @@
-const CACHE='blexo-suite-v50-cloudflare';
+const CACHE='blexo-suite-v51-cloudflare';
 const ASSETS=['./','./index.html','./check.html','./leiturista.html','./adm-rateio.html','./scanner.html','./ronda.html','./diario.html','./fiscalizacao.html','./rateios.html','./orcamentos.html','./reembolso.html','./dashboard.css','./styles.css','./observation-size.css','./photo-notes.css','./seals.css','./adm-rateio.css','./ronda.css','./diario.css','./fiscalizacao.css','./rateios.css','./orcamentos.css','./reembolso.css','./scanner.css','./config.js','./cloud-api.js','./dashboard.js','./app.js','./check-app.js','./offline-pdf.js','./scanner.js','./ronda.js','./diario.js','./fiscalizacao.js','./rateios.js','./orcamentos.js','./reembolso.js','./adm-rateio.js','./favicon.png','./apple-touch-icon.png','./icon-512.png','./icon-192.png','./manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -24,14 +24,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // CSS/JS/imagens: cache primeiro, rede como atualização.
+  // Recursos estáticos: rede primeiro para receber publicações novas.
+  // Se estiver offline, usa o cache local.
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const network = fetch(event.request).then(response => {
-        if (response.ok) caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
-        return response;
-      });
-      return cached || network;
-    })
+    fetch(event.request).then(response => {
+      if (response.ok) caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });
