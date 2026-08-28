@@ -11,8 +11,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "blexo-check",
-      "database_id": "72b0928af3ba4ad2a024d98ab2d9eeaf",
+      "database_name": "blexo-suite",
+      "database_id": "8bdb42e8-0a0b-4b13-a416-de3ff283be25",
       "migrations_dir": "src/migrations"
     }
   ],
