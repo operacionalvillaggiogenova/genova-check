@@ -12,6 +12,9 @@ const num = (v, fallback = null) => {
 const ADMIN_HOST = 'rateio.blexo.com.br';
 
 const safeName = (v='arquivo') => String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').slice(0,120);
+const COMMON_AREA_NAMES = new Set(['Salão 1','Salão 2','Academia']);
+const isCommonAreaReading = code => COMMON_AREA_NAMES.has(String(code || '').trim());
+
 
 async function requireDb(env) {
   if (!env.DB || !env.BUCKET) throw new Error('D1/R2 ainda não configurados no Worker.');
@@ -117,12 +120,25 @@ function calculate(cycle, readings, costs) {
   const items = costs || [];
   const totalValue = items.reduce((s,x)=>s+Number(x.amount||0),0) || Number(cycle.total_value||0);
   const factor = Number(cycle.conversion_factor||1);
-  const measured = readings.map(r => ({...r, delta: Number(r.measured_value||0), converted: Number(r.measured_value||0)*factor}));
-  const sum = measured.reduce((s,r)=>s+r.converted,0);
+  const measured = readings.map(r => ({
+    ...r,
+    is_common_area: isCommonAreaReading(r.block_code),
+    delta: Number(r.measured_value||0),
+    converted: Number(r.measured_value||0)*factor
+  }));
+  const blockReadings = measured.filter(r=>!r.is_common_area);
+  const commonReadings = measured.filter(r=>r.is_common_area);
+  const blockSum = blockReadings.reduce((s,r)=>s+r.converted,0);
+  const commonSum = commonReadings.reduce((s,r)=>s+r.converted,0);
+  const sum = blockSum + commonSum;
   const invoiceConsumption = Number(cycle.invoice_consumption||0);
-  const condo = cycle.utility === 'water' && invoiceConsumption > 0 ? Math.max(0, invoiceConsumption - sum) : Number(cycle.condo_consumption||0);
-  const consumerPool = cycle.utility === 'water' ? sum : sum;
-  return { totalValue, factor, measured, sum, invoiceConsumption, condo, consumerPool };
+  const denominator = cycle.utility === 'water' && invoiceConsumption > 0 ? invoiceConsumption : sum;
+  const condo = commonSum;
+  return {
+    totalValue, factor, measured, blockReadings, commonReadings,
+    sum, blockSum, commonSum, invoiceConsumption, condo,
+    consumerPool: blockSum, denominator
+  };
 }
 
 async function getCycle(env, cycleId) {
@@ -182,21 +198,28 @@ async function closeCycle(request, env, cycleId) {
   const calc=detail.calculation;
   if(!detail.readings.length) return json({error:'Não há leituras para fechar o ciclo.'},400);
   if(detail.readings.some(r=>r.previous_value===null || r.current_value===null || Number(r.measured_value)<0)) return json({error:'Existem leituras incompletas ou negativas.'},400);
-  if(cycle.utility==='water' && Number(cycle.invoice_consumption||0)>0 && Math.abs((calc.sum+calc.condo)-Number(cycle.invoice_consumption))>0.01) return json({error:'O consumo dos blocos + consumo do condomínio não fecha com o consumo da fatura.'},400);
+  if(cycle.utility==='water' && Number(cycle.invoice_consumption||0)>0) {
+    const diff = Math.abs((calc.blockSum + calc.commonSum) - Number(cycle.invoice_consumption));
+    if(diff>0.01) return json({error:`O consumo dos blocos + áreas comuns não fecha com o consumo da fatura. Diferença: ${diff.toFixed(2)}.`},400);
+  }
   if(calc.totalValue<=0) return json({error:'Informe pelo menos um valor de conta/fatura antes do fechamento.'},400);
   const t=now();
   await env.DB.prepare('DELETE FROM rateio_results WHERE cycle_id=?').bind(cycleId).run();
   const invoice = Number(cycle.invoice_consumption || 0);
-  const convertedSum = calc.sum || 0;
-  const denominator = cycle.utility === 'water' && invoice > 0 ? invoice : convertedSum;
-  const condoConsumption = cycle.utility === 'water' && invoice > 0 ? Math.max(0, invoice - convertedSum) : Number(cycle.condo_consumption || 0);
+  const denominator = cycle.utility === 'water' && invoice > 0 ? invoice : (calc.blockSum + calc.commonSum);
+  const units = Math.max(1, Number(cycle.units_per_block || 16));
+  const totalUnits = units * 26;
+  const commonPoolAmount = denominator > 0 ? calc.totalValue * (calc.commonSum / denominator) : 0;
+  const commonPerUnit = totalUnits > 0 ? commonPoolAmount / totalUnits : 0;
   for (const r of detail.readings) {
     const measured = Math.max(0, Number(r.measured_value || 0));
     const converted = measured * Number(cycle.conversion_factor || 1);
     const pct = denominator > 0 ? converted / denominator : 0;
-    const blockAmount = calc.totalValue * pct;
-    const condoAmount = cycle.utility === 'water' && invoice > 0 ? calc.totalValue * (condoConsumption / invoice) : 0;
-    const apartmentAmount = (blockAmount + condoAmount) / Math.max(1, Number(cycle.units_per_block || 16));
+    const amount = calc.totalValue * pct;
+    const isCommon = isCommonAreaReading(r.block_code);
+    const blockAmount = isCommon ? 0 : amount;
+    const condoAmount = isCommon ? amount : commonPerUnit;
+    const apartmentAmount = isCommon ? 0 : (blockAmount / units) + commonPerUnit;
     await env.DB.prepare(`INSERT INTO rateio_results
       (id,cycle_id,block_code,measured_consumption,converted_consumption,percentage,block_amount,condo_amount,apartment_amount,created_at)
       VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(

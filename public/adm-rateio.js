@@ -7,9 +7,106 @@ async function refresh(){try{$('status').textContent='● Atualizando…';const 
 async function openCycle(id){try{current=await api(`/adm-rateio/cycles/${id}`);renderDetail()}catch(e){alert(e.message)}}
 function renderDetail(){const c=current; $('detail').hidden=false;$('detailTitle').textContent=`${c.utility==='water'?'Água':'Gás'} · ${c.reference||'Sem competência'}`;$('detailMeta').textContent=`${c.name||'Relatório'} · ${c.report_date||''} · ${c.status==='CLOSED'?'Ciclo fechado':'Ciclo aberto para conferência'}`;$('reference').value=c.reference||'';$('invoiceConsumption').value=c.invoice_consumption??'';$('factor').value=c.conversion_factor??1;$('units').value=c.units_per_block??16;$('condoConsumption').value=c.condo_consumption??0;$('notes').value=c.notes||'';$('closeCycle').disabled=c.status==='CLOSED';$('save').disabled=c.status==='CLOSED';$('pdfLink').hidden=!c.pdf_key;$('pdfLink').href=c.pdf_key?'/api/files/'+c.pdf_key:'';renderCosts();renderReadings();renderSummary();$('closedLabel').textContent=c.status==='CLOSED'?`Fechado em ${new Date(c.closed_at).toLocaleString('pt-BR')}`:'';window.scrollTo({top:document.getElementById('detail').offsetTop-20,behavior:'smooth'})}
 function renderCosts(){const rows=c=>`<div class="cost-row"><input data-cost-desc placeholder="Descrição" value="${(c.description||'').replace(/"/g,'&quot;')}"><input data-cost-invoice placeholder="NF / fatura" value="${(c.invoice_number||'').replace(/"/g,'&quot;')}"><input data-cost-amount type="number" step="0.01" value="${c.amount??0}"><button class="remove-cost" type="button">×</button></div>`;$('costs').innerHTML=(current.costs||[]).map(rows).join('');document.querySelectorAll('.remove-cost').forEach(b=>b.onclick=()=>{b.parentElement.remove();renderSummary()});document.querySelectorAll('[data-cost-amount]').forEach(x=>x.oninput=renderSummary)}
-function renderReadings(){const rows=current.readings||[];const avg=rows.filter(r=>Number(r.measured_value)>=0).reduce((s,r)=>s+Number(r.measured_value||0),0)/(rows.filter(r=>Number(r.measured_value)>=0).length||1);const c=collect();const factor=num(c.conversionFactor)||1;const vals=rows.map(r=>{const p=num(document.querySelector(`[data-prev="${r.id}"]`)?.value??r.previous_value),a=num(document.querySelector(`[data-current="${r.id}"]`)?.value??r.current_value);return p!=null&&a!=null?Math.max(0,a-p)*factor:0});const sum=vals.reduce((s,x)=>s+x,0);const inv=num(c.invoiceConsumption);const denom=current.utility==='water'&&inv!=null&&inv>0?inv:sum;const total=Number(c.totalValue||0);const condo=current.utility==='water'&&inv!=null?Math.max(0,inv-sum):0;const units=Math.max(1,Number(c.unitsPerBlock||16));$('readingsTable').querySelector('tbody').innerHTML=rows.map((r,i)=>{const p=num(r.previous_value),a=num(r.current_value);const delta=p!=null&&a!=null?Math.max(0,a-p):null;const converted=delta==null?0:delta*factor;const pct=denom>0?converted/denom*100:0;const blockCost=denom>0?total*pct/100:0;const condoCost=current.utility==='water'&&inv>0?total*condo/inv:0;const perApto=(blockCost+condoCost)/units;return `<tr><td><strong>${r.block_code}</strong></td><td><input data-prev="${r.id}" type="number" step="0.01" value="${r.previous_value??''}"></td><td><input data-current="${r.id}" type="number" step="0.01" value="${r.current_value??''}"></td><td class="reading-consumption" data-delta="${r.id}">${fmt(delta)}</td><td>${pct.toLocaleString('pt-BR',{maximumFractionDigits:3})}%</td><td>${money(blockCost)}</td><td>${money(perApto)}</td><td>${fmt(avg)}</td><td><input class="correction-check" data-corrected="${r.id}" type="checkbox" ${r.corrected?'checked':''}></td><td><input data-reason="${r.id}" value="${r.correction_reason||''}" placeholder="Motivo da correção"></td></tr>`}).join('')||'<tr><td colspan="10">Nenhuma leitura recebida.</td></tr>';document.querySelectorAll('[data-prev],[data-current]').forEach(x=>x.oninput=()=>{const id=x.dataset.prev||x.dataset.current;const p=document.querySelector(`[data-prev="${id}"]`).value,c=document.querySelector(`[data-current="${id}"]`).value;const cell=document.querySelector(`[data-delta="${id}"]`);const d=num(p)!=null&&num(c)!=null?num(c)-num(p):null;cell.textContent=fmt(d);renderSummary()})}
+function isCommonArea(code){
+  const c=typeof blexoConfig==='function'?blexoConfig():{};
+  return Array.isArray(c.commonAreas) && c.commonAreas.includes(String(code||''));
+}
+function renderReadings(){
+  const rows=current.readings||[];
+  const c=collect();
+  const factor=num(c.conversionFactor)||1;
+  const invoice=num(c.invoiceConsumption);
+  const units=Math.max(1,Number(c.unitsPerBlock||16));
+  const totalUnits=units*26;
+  const blocks=rows.filter(r=>!isCommonArea(r.block_code));
+  const common=rows.filter(r=>isCommonArea(r.block_code));
+  const allRows=rows;
+  const blockSum=blocks.reduce((s,r)=>{
+    const p=num(document.querySelector(`[data-prev="${r.id}"]`)?.value??r.previous_value),a=num(document.querySelector(`[data-current="${r.id}"]`)?.value??r.current_value);
+    return s+(p!=null&&a!=null?Math.max(0,a-p)*factor:0);
+  },0);
+  const commonSum=common.reduce((s,r)=>{
+    const p=num(document.querySelector(`[data-prev="${r.id}"]`)?.value??r.previous_value),a=num(document.querySelector(`[data-current="${r.id}"]`)?.value??r.current_value);
+    return s+(p!=null&&a!=null?Math.max(0,a-p)*factor:0);
+  },0);
+  const denominator=invoice!=null&&invoice>0?invoice:(blockSum+commonSum);
+  const total=Number(c.totalValue||0);
+  const commonCostTotal=denominator>0?total*(commonSum/denominator):0;
+  const commonPerUnit=totalUnits>0?commonCostTotal/totalUnits:0;
+  const avg=blocks.length?blockSum/blocks.length:0;
+  const rowHtml=(r)=>{
+    const p=num(r.previous_value),a=num(r.current_value);
+    const delta=p!=null&&a!=null?Math.max(0,a-p):null;
+    const converted=delta==null?0:delta*factor;
+    const pct=denominator>0?converted/denominator*100:0;
+    const amount=denominator>0?total*converted/denominator:0;
+    const commonRow=isCommonArea(r.block_code);
+    const perApto=commonRow?0:amount/units;
+    const finalPerApto=commonRow?0:perApto+commonPerUnit;
+    return `<tr class="${commonRow?'common-area-row':''}">
+      <td><strong>${r.block_code}</strong></td>
+      <td><input data-prev="${r.id}" type="number" step="0.01" value="${r.previous_value??''}"></td>
+      <td><input data-current="${r.id}" type="number" step="0.01" value="${r.current_value??''}"></td>
+      <td class="reading-consumption" data-delta="${r.id}">${fmt(delta)}</td>
+      <td>${pct.toLocaleString('pt-BR',{maximumFractionDigits:3})}%</td>
+      <td>${money(amount)}</td>
+      <td>${commonRow?'—':money(perApto)}</td>
+      <td>${commonRow?money(commonPerUnit):'—'}</td>
+      <td>${commonRow?'—':money(finalPerApto)}</td>
+      <td><input class="correction-check" data-corrected="${r.id}" type="checkbox" ${r.corrected?'checked':''}></td>
+      <td><input data-reason="${r.id}" value="${r.correction_reason||''}" placeholder="Motivo da correção"></td>
+    </tr>`;
+  };
+  const blockRows=blocks.map(rowHtml).join('');
+  const commonRows=common.map(rowHtml).join('');
+  const commonTotalRow=`<tr class="common-total-row">
+    <td colspan="6"><strong>Total áreas comuns</strong></td>
+    <td colspan="2"><strong>${money(commonPerUnit)}</strong><small class="table-note"> por unidade / 416 aptos</small></td>
+    <td><strong>Rateio comum por unidade</strong></td><td colspan="2"></td>
+  </tr>`;
+  $('readingsTable').querySelector('tbody').innerHTML=
+    (blockRows?`<tr class="group-title-row"><td colspan="11"><strong>BLOCOS</strong></td></tr>${blockRows}`:'')+
+    (commonRows?`<tr class="group-title-row"><td colspan="11"><strong>ÁREAS COMUNS</strong></td></tr>${commonRows}${commonTotalRow}`:'')+
+    (!allRows.length?'<tr><td colspan="11">Nenhuma leitura recebida.</td></tr>':'');
+  document.querySelectorAll('[data-prev],[data-current]').forEach(x=>x.oninput=()=>{
+    const id=x.dataset.prev||x.dataset.current;
+    const p=document.querySelector(`[data-prev="${id}"]`).value;
+    const a=document.querySelector(`[data-current="${id}"]`).value;
+    const cell=document.querySelector(`[data-delta="${id}"]`);
+    const d=num(p)!=null&&num(a)!=null?num(a)-num(p):null;
+    cell.textContent=fmt(d);
+    renderSummary();
+  });
+}
 function collect(){const costs=[...document.querySelectorAll('.cost-row')].map(r=>({description:r.querySelector('[data-cost-desc]').value.trim()||'Conta',invoiceNumber:r.querySelector('[data-cost-invoice]').value.trim(),amount:num(r.querySelector('[data-cost-amount]').value)||0}));const readings=(current.readings||[]).map(r=>({id:r.id,previousValue:document.querySelector(`[data-prev="${r.id}"]`)?.value,currentValue:document.querySelector(`[data-current="${r.id}"]`)?.value,corrected:document.querySelector(`[data-corrected="${r.id}"]`)?.checked,correctionReason:document.querySelector(`[data-reason="${r.id}"]`)?.value||''}));return {reference:$('reference').value,invoiceConsumption:$('invoiceConsumption').value,totalValue:costs.reduce((s,x)=>s+x.amount,0),conversionFactor:$('factor').value,unitsPerBlock:$('units').value,condoConsumption:$('condoConsumption').value,notes:$('notes').value,costs,readings}}
-function renderSummary(){const c=collect();const readings=current.readings||[];const factor=num(c.conversionFactor)||1;const deltas=readings.map(r=>{const p=num(document.querySelector(`[data-prev="${r.id}"]`)?.value),a=num(document.querySelector(`[data-current="${r.id}"]`)?.value);return p!=null&&a!=null?Math.max(0,a-p)*factor:0});const sum=deltas.reduce((s,x)=>s+x,0);const inv=num(c.invoiceConsumption);const condo= current.utility==='water'&&inv!=null?Math.max(0,inv-sum):num(c.condoConsumption)||0;const total=Number(c.totalValue||0);const avg=deltas.length?sum/deltas.length:0;$('summary').innerHTML=[['Valor das contas',money(total)],['Consumo medido',fmt(sum)],['Média por bloco',fmt(avg)],['Consumo condomínio',fmt(condo)],['Status',current.status==='CLOSED'?'FECHADO':'ABERTO']].map(x=>`<div class="summary-box"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('')}
+function renderSummary(){
+  const c=collect();
+  const readings=current.readings||[];
+  const factor=num(c.conversionFactor)||1;
+  const blockRows=readings.filter(r=>!isCommonArea(r.block_code));
+  const commonRows=readings.filter(r=>isCommonArea(r.block_code));
+  const sumFor=rows=>rows.reduce((s,r)=>{
+    const p=num(document.querySelector(`[data-prev="${r.id}"]`)?.value),a=num(document.querySelector(`[data-current="${r.id}"]`)?.value);
+    return s+(p!=null&&a!=null?Math.max(0,a-p)*factor:0);
+  },0);
+  const blockSum=sumFor(blockRows);
+  const commonSum=sumFor(commonRows);
+  const totalConsumption=blockSum+commonSum;
+  const inv=num(c.invoiceConsumption);
+  const denominator=inv!=null&&inv>0?inv:totalConsumption;
+  const total=Number(c.totalValue||0);
+  const commonAmount=denominator>0?total*commonSum/denominator:0;
+  const commonPerUnit=commonAmount/(Math.max(1,Number(c.unitsPerBlock||16))*26);
+  const avg=blockRows.length?blockSum/blockRows.length:0;
+  $('summary').innerHTML=[
+    ['Valor das contas',money(total)],
+    ['Consumo dos blocos',fmt(blockSum)],
+    ['Média por bloco',fmt(avg)],
+    ['Consumo áreas comuns',fmt(commonSum)],
+    ['Rateio comum / unidade',money(commonPerUnit)],
+    ['Status',current.status==='CLOSED'?'FECHADO':'ABERTO']
+  ].map(x=>`<div class="summary-box"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
+}
 async function save(){if(!current||current.status==='CLOSED')return;try{$('detailFeedback').textContent='Salvando…';current=await api(`/adm-rateio/cycles/${current.id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(collect())});renderDetail();$('detailFeedback').textContent='✓ Alterações salvas.';await refresh()}catch(e){$('detailFeedback').textContent='Falha: '+e.message}}
 async function closeCycle(){if(!current||current.status==='CLOSED')return;const c=collect();if(!confirm('Fechar este ciclo? Depois do fechamento, as leituras ficarão bloqueadas para edição.'))return;try{$('detailFeedback').textContent='Conferindo e fechando…';await api(`/adm-rateio/cycles/${current.id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(c)});current=await api(`/adm-rateio/cycles/${current.id}/close`,{method:'POST'});renderDetail();await refresh();$('detailFeedback').textContent='✓ Ciclo fechado com sucesso.'}catch(e){$('detailFeedback').textContent='Não foi possível fechar: '+e.message}}
 document.querySelectorAll('[data-utility]').forEach(b=>b.onclick=()=>{utility=b.dataset.utility;document.querySelectorAll('[data-utility]').forEach(x=>x.classList.toggle('active',x===b));$('detail').hidden=true;refresh()});$('refresh').onclick=refresh;$('save').onclick=save;$('closeCycle').onclick=closeCycle;$('addCost').onclick=()=>{const div=document.createElement('div');div.className='cost-row';div.innerHTML='<input data-cost-desc placeholder="Descrição"><input data-cost-invoice placeholder="NF / fatura"><input data-cost-amount type="number" step="0.01" value="0"><button class="remove-cost" type="button">×</button>';$('costs').appendChild(div);div.querySelector('.remove-cost').onclick=()=>{div.remove();renderSummary()};div.querySelector('[data-cost-amount]').oninput=renderSummary;renderSummary()};

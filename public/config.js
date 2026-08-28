@@ -6,7 +6,7 @@
 // Ao alterar esta versão, todas as configurações
 // locais antigas serão substituídas pelos padrões
 // definidos abaixo.
-const BLEXO_APP_VERSION = '50.0';
+const BLEXO_APP_VERSION = '51.0';
 
 // Chave que registra qual versão já foi aplicada
 const BLEXO_VERSION_KEY = 'blexo-app-version';
@@ -40,10 +40,9 @@ const BLEXO_DEFAULT_CONFIG = {
   blockCount: 26,
 
   commonAreas: [
-    'Salões 1',
-    'Salões 2',
-    'Academia',
-    'Sanepar'
+    'Salão 1',
+    'Salão 2',
+    'Academia'
   ],
 
   // Áreas da Ronda
