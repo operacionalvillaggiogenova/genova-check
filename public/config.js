@@ -6,7 +6,7 @@
 // Ao alterar esta versão, todas as configurações
 // locais antigas serão substituídas pelos padrões
 // definidos abaixo.
-const BLEXO_APP_VERSION = '49.1';
+const BLEXO_APP_VERSION = '50.0';
 
 // Chave que registra qual versão já foi aplicada
 const BLEXO_VERSION_KEY = 'blexo-app-version';

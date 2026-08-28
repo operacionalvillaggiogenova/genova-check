@@ -131,7 +131,8 @@ async function getCycle(env, cycleId) {
   const readings = await env.DB.prepare('SELECT * FROM readings WHERE cycle_id=? ORDER BY CAST(block_code AS INTEGER), block_code').bind(cycleId).all();
   const costs = await env.DB.prepare('SELECT * FROM cost_items WHERE cycle_id=? ORDER BY created_at').bind(cycleId).all();
   const evidences = await env.DB.prepare('SELECT id,utility,meter,r2_key,filename,content_type,size,created_at FROM evidences WHERE cycle_id=? ORDER BY created_at').bind(cycleId).all();
-  const report=await env.DB.prepare('SELECT pdf_key FROM collection_reports WHERE id=?').bind(cycle.report_id).first(); return {...cycle, pdf_key:report?.pdf_key||null, readings:readings.results||[], costs:costs.results||[], evidences:evidences.results||[], results:results.results||[], calculation:calculate(cycle,readings.results||[],costs.results||[])};
+  const report=await env.DB.prepare('SELECT pdf_key FROM collection_reports WHERE id=?').bind(cycle.report_id).first();
+  return {...cycle, pdf_key:report?.pdf_key||null, readings:readings.results||[], costs:costs.results||[], evidences:evidences.results||[], results:[], calculation:calculate(cycle,readings.results||[],costs.results||[])};
 }
 
 async function adminList(request, env) {
@@ -216,7 +217,8 @@ export default { async fetch(request, env) {
   try {
     const url=new URL(request.url); const path=url.pathname.replace(/\/+$/,'')||'/';
     const isAdminPath = path === '/adm-rateio.html' || path.startsWith('/api/adm-rateio') || path.startsWith('/api/files/');
-    if (isAdminPath && url.hostname !== ADMIN_HOST) {
+    const isWorkersDev = url.hostname.endsWith('.workers.dev');
+    if (isAdminPath && url.hostname !== ADMIN_HOST && !isWorkersDev) {
       return json({error:`Módulo administrativo disponível somente em https://${ADMIN_HOST}`},403);
     }
     if(path==='/api/health') return json({ok:true,d1:!!env.DB,r2:!!env.BUCKET});

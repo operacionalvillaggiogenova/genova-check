@@ -79,3 +79,7 @@ O fator padrão é `2,2`, mas pode ser alterado no Adm-Rateio. Várias contas po
 ## Evolução futura
 
 A próxima camada de segurança recomendada é Cloudflare Access para proteger `rateio.blexo.com.br`, sem criar autenticação própria no Blexo.
+
+
+## Deploy Cloudflare
+Use `npm run deploy` no Workers Builds para aplicar as migrations D1 e publicar o Worker.
