@@ -5,3 +5,5 @@
 .common-total-row td{background:#f1f6f8;border-top:2px solid #b9c9d3}
 .table-note{display:block;font-size:.72rem;font-weight:400;color:#667}
 #readingsTable input{min-width:72px}
+
+.subtotal-row td{background:#f7fafb;border-top:2px solid #cbd7df;font-weight:700}.subtotal-row td,.common-total-row td{font-size:12px}.common-total-row td{background:#f1f6f8;border-top:2px solid #b9c9d3}

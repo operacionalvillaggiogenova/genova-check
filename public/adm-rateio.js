@@ -7,10 +7,20 @@ async function refresh(){try{$('status').textContent='● Atualizando…';const 
 async function openCycle(id){try{current=await api(`/adm-rateio/cycles/${id}`);renderDetail()}catch(e){alert(e.message)}}
 function renderDetail(){const c=current; $('detail').hidden=false;$('detailTitle').textContent=`${c.utility==='water'?'Água':'Gás'} · ${c.reference||'Sem competência'}`;$('detailMeta').textContent=`${c.name||'Relatório'} · ${c.report_date||''} · ${c.status==='CLOSED'?'Ciclo fechado':'Ciclo aberto para conferência'}`;$('reference').value=c.reference||'';$('invoiceConsumption').value=c.invoice_consumption??'';$('factor').value=c.conversion_factor??1;$('units').value=c.units_per_block??16;$('condoConsumption').value=c.condo_consumption??0;$('notes').value=c.notes||'';$('closeCycle').disabled=c.status==='CLOSED';$('save').disabled=c.status==='CLOSED';$('pdfLink').hidden=!c.pdf_key;$('pdfLink').href=c.pdf_key?'/api/files/'+c.pdf_key:'';renderCosts();renderReadings();renderSummary();$('closedLabel').textContent=c.status==='CLOSED'?`Fechado em ${new Date(c.closed_at).toLocaleString('pt-BR')}`:'';window.scrollTo({top:document.getElementById('detail').offsetTop-20,behavior:'smooth'})}
 function renderCosts(){const rows=c=>`<div class="cost-row"><input data-cost-desc placeholder="Descrição" value="${(c.description||'').replace(/"/g,'&quot;')}"><input data-cost-invoice placeholder="NF / fatura" value="${(c.invoice_number||'').replace(/"/g,'&quot;')}"><input data-cost-amount type="number" step="0.01" value="${c.amount??0}"><button class="remove-cost" type="button">×</button></div>`;$('costs').innerHTML=(current.costs||[]).map(rows).join('');document.querySelectorAll('.remove-cost').forEach(b=>b.onclick=()=>{b.parentElement.remove();renderSummary()});document.querySelectorAll('[data-cost-amount]').forEach(x=>x.oninput=renderSummary)}
+function normalizeAreaName(value){
+  return String(value||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
+}
 function isCommonArea(code){
   const c=typeof blexoConfig==='function'?blexoConfig():{};
-  return Array.isArray(c.commonAreas) && c.commonAreas.includes(String(code||''));
+  const value=normalizeAreaName(code);
+  const configured=(Array.isArray(c.commonAreas)?c.commonAreas:[]).map(normalizeAreaName);
+  if(configured.includes(value)) return true;
+  // Compatibilidade com leituras antigas que usam “Salões 1/2”,
+  // enquanto a configuração usa “Salão 1/2”.
+  const aliases={'saloes 1':'salao 1','saloes 2':'salao 2'};
+  return configured.includes(aliases[value]||'');
 }
+
 function renderReadings(){
   const rows=current.readings||[];
   const c=collect();
@@ -58,14 +68,31 @@ function renderReadings(){
   };
   const blockRows=blocks.map(rowHtml).join('');
   const commonRows=common.map(rowHtml).join('');
+  const blockCostTotal=blocks.reduce((s,r)=>{
+    const p=num(r.previous_value),a=num(r.current_value);
+    const d=p!=null&&a!=null?Math.max(0,a-p)*factor:0;
+    return s+(denominator>0?total*d/denominator:0);
+  },0);
+  const blockPct=denominator>0?blockSum/denominator*100:0;
+  const commonPct=denominator>0?commonSum/denominator*100:0;
+  const blockSubtotalRow=`<tr class="subtotal-row">
+    <td colspan="3"><strong>Subtotal blocos</strong></td>
+    <td><strong>${fmt(blockSum)}</strong></td>
+    <td><strong>${blockPct.toLocaleString('pt-BR',{maximumFractionDigits:3})}%</strong></td>
+    <td><strong>${money(blockCostTotal)}</strong></td>
+    <td colspan="5"></td>
+  </tr>`;
   const commonTotalRow=`<tr class="common-total-row">
-    <td colspan="6"><strong>Total áreas comuns</strong></td>
+    <td colspan="3"><strong>Subtotal áreas comuns</strong></td>
+    <td><strong>${fmt(commonSum)}</strong></td>
+    <td><strong>${commonPct.toLocaleString('pt-BR',{maximumFractionDigits:3})}%</strong></td>
     <td><strong>${money(commonCostTotal)}</strong></td>
+    <td>—</td>
     <td><strong>${money(commonPerUnit)}</strong><small class="table-note"> por unidade / ${totalUnits} aptos</small></td>
-    <td><strong>Rateio comum por unidade</strong></td><td colspan="2"></td>
+    <td colspan="3"></td>
   </tr>`;
   $('readingsTable').querySelector('tbody').innerHTML=
-    (blockRows?`<tr class="group-title-row"><td colspan="11"><strong>BLOCOS</strong></td></tr>${blockRows}`:'')+
+    (blockRows?`<tr class="group-title-row"><td colspan="11"><strong>BLOCOS</strong></td></tr>${blockRows}${blockSubtotalRow}`:'')+
     (commonRows?`<tr class="group-title-row"><td colspan="11"><strong>ÁREAS COMUNS</strong></td></tr>${commonRows}${commonTotalRow}`:'')+
     (!allRows.length?'<tr><td colspan="11">Nenhuma leitura recebida.</td></tr>':'');
   document.querySelectorAll('[data-prev],[data-current]').forEach(x=>x.oninput=()=>{
