@@ -88,6 +88,182 @@ async function syncLeiturista(request, env) {
   return json({ ok:true, reportId, cycles:results });
 }
 
+
+async function syncRonda(request, env) {
+  await requireDb(env);
+  const form = await request.formData();
+  let payload;
+  try { payload = JSON.parse(String(form.get('payload') || '{}')); } catch { return json({error:'Dados da ronda inválidos.'},400); }
+  if (!payload.id) return json({error:'Ronda sem identificador.'},400);
+  const t=now();
+  const existing=await env.DB.prepare('SELECT id FROM ronda_sessions WHERE source_local_id=?').bind(String(payload.id)).first();
+  const sessionId=existing?.id || id();
+  await env.DB.prepare(`INSERT INTO ronda_sessions(id,started_at,ended_at,vigilante,notes,source_local_id,created_at,updated_at)
+    VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(source_local_id) DO UPDATE SET
+    started_at=excluded.started_at,ended_at=excluded.ended_at,vigilante=excluded.vigilante,notes=excluded.notes,updated_at=excluded.updated_at`)
+    .bind(sessionId,payload.startedAt||t,payload.endedAt||null,payload.vigilante||'',payload.notes||'',String(payload.id),existing?null:t,t).run();
+  const points=Array.isArray(payload.points)?payload.points:[];
+  const files=form.getAll('photos');
+  let photoMeta=[]; try{photoMeta=JSON.parse(String(form.get('photoMeta')||'[]'));}catch{}
+  for(let i=0;i<points.length;i++){
+    const point=points[i]||{};
+    const meta=photoMeta[i]||{};
+    let evidenceKey=null;
+    const file=files[i];
+    if(file instanceof File && file.size){
+      evidenceKey=`ronda/${sessionId}/${String(i).padStart(3,'0')}-${safeName(file.name||'evidencia.jpg')}`;
+      await env.BUCKET.put(evidenceKey,file.stream(),{httpMetadata:{contentType:file.type||'image/jpeg'}});
+    } else {
+      const old=await env.DB.prepare('SELECT evidence_key FROM ronda_checkpoints WHERE session_id=? AND point_order=?').bind(sessionId,i).first();
+      evidenceKey=old?.evidence_key||null;
+    }
+    await env.DB.prepare(`INSERT INTO ronda_checkpoints
+      (id,session_id,point_order,point_name,checked_at,status,occurrence,evidence_key,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(session_id,point_order) DO UPDATE SET
+      point_name=excluded.point_name,checked_at=excluded.checked_at,status=excluded.status,
+      occurrence=excluded.occurrence,evidence_key=COALESCE(excluded.evidence_key,ronda_checkpoints.evidence_key),updated_at=excluded.updated_at`)
+      .bind(id(),sessionId,i,String(point.name||''),point.at||null,point.hasPhoto?'CHECKED':'PENDING',point.occurrence||null,evidenceKey,t,t).run();
+  }
+  return json({ok:true,sessionId,points:points.length});
+}
+
+async function adminRondaList(request, env) {
+  await requireDb(env);
+  const url=new URL(request.url); const from=url.searchParams.get('from'); const to=url.searchParams.get('to'); const vigilante=url.searchParams.get('vigilante');
+  let q=`SELECT s.id,s.started_at,s.ended_at,s.vigilante,s.notes,s.source_local_id,
+    COUNT(c.id) AS total_points,
+    SUM(CASE WHEN c.status='CHECKED' THEN 1 ELSE 0 END) AS checked_points,
+    SUM(CASE WHEN c.occurrence IS NOT NULL AND TRIM(c.occurrence)<>'' THEN 1 ELSE 0 END) AS occurrences
+    FROM ronda_sessions s LEFT JOIN ronda_checkpoints c ON c.session_id=s.id WHERE 1=1`;
+  const args=[]; if(from){q+=' AND date(s.started_at)>=date(?)';args.push(from)} if(to){q+=' AND date(s.started_at)<=date(?)';args.push(to)} if(vigilante){q+=' AND lower(s.vigilante) LIKE lower(?)';args.push('%'+vigilante+'%')}
+  q+=' GROUP BY s.id ORDER BY s.started_at DESC';
+  const rows=await env.DB.prepare(q).bind(...args).all(); return json(rows.results||[]);
+}
+async function adminRondaDetail(request, env, sessionId){
+  await requireDb(env); const s=await env.DB.prepare('SELECT * FROM ronda_sessions WHERE id=?').bind(sessionId).first(); if(!s)return json({error:'Ronda não encontrada.'},404);
+  const pts=await env.DB.prepare('SELECT * FROM ronda_checkpoints WHERE session_id=? ORDER BY point_order').bind(sessionId).all();
+  return json({...s,checkpoints:pts.results||[]});
+}
+
+
+
+async function syncFiscalizacao(request, env) {
+  await requireDb(env);
+  const form = await request.formData();
+  let payload;
+  try { payload = JSON.parse(String(form.get('payload') || '{}')); } catch { return json({error:'Dados da fiscalização inválidos.'},400); }
+  if (!payload.id) return json({error:'Fiscalização sem identificador.'},400);
+  const t=now();
+  const existing=await env.DB.prepare('SELECT id FROM fiscalizacao_reports WHERE source_local_id=?').bind(String(payload.id)).first();
+  const reportId=existing?.id || id();
+  await env.DB.prepare(`INSERT INTO fiscalizacao_reports(id,report_type,name,report_date,inspector,notes,source_local_id,created_at,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(source_local_id) DO UPDATE SET
+    report_type=excluded.report_type,name=excluded.name,report_date=excluded.report_date,inspector=excluded.inspector,notes=excluded.notes,updated_at=excluded.updated_at`)
+    .bind(reportId,payload.reportType||'Fiscalização de Unidades',payload.name||'',payload.reportDate||'',payload.inspector||'',payload.notes||'',String(payload.id),existing?null:t,t).run();
+  const items=Array.isArray(payload.items)?payload.items:[];
+  const files=form.getAll('photos');
+  let meta=[]; try{meta=JSON.parse(String(form.get('photoMeta')||'[]'));}catch{}
+  for(const old of items){
+    const itemIdRow=await env.DB.prepare('SELECT id FROM fiscalizacao_items WHERE report_id=? AND source_local_id=?').bind(reportId,String(old.id)).first();
+    const itemId=itemIdRow?.id||id();
+    await env.DB.prepare(`INSERT INTO fiscalizacao_items(id,report_id,block,unit,category,description,source_local_id,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(report_id,source_local_id) DO UPDATE SET block=excluded.block,unit=excluded.unit,category=excluded.category,description=excluded.description,updated_at=excluded.updated_at`)
+      .bind(itemId,reportId,old.block||'',old.unit||'',old.category||'',old.description||'',String(old.id),itemIdRow?null:t,t).run();
+    const itemPhotos=Array.isArray(old.photos)?old.photos:[];
+    for(let j=0;j<itemPhotos.length;j++){
+      const p=itemPhotos[j]||{}; const m=meta.find(x=>x.itemId===old.id&&Number(x.photoIndex)===j);
+      const fileIndex=m?Number(m.fileIndex):-1; const file=fileIndex>=0?files[fileIndex]:null;
+      if(file instanceof File && file.size){
+        const key=`fiscalizacao/${reportId}/${itemId}/${p.id||j}-${safeName(file.name||'evidencia.jpg')}`;
+        await env.BUCKET.put(key,file.stream(),{httpMetadata:{contentType:file.type||'image/jpeg'}});
+        const oldEv=await env.DB.prepare('SELECT id FROM fiscalizacao_evidences WHERE item_id=? AND r2_key=?').bind(itemId,key).first();
+        if(!oldEv) await env.DB.prepare('INSERT INTO fiscalizacao_evidences(id,item_id,r2_key,filename,content_type,size,note,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id(),itemId,key,file.name||'evidencia.jpg',file.type||'image/jpeg',file.size,p.note||'',t).run();
+      }
+    }
+  }
+  return json({ok:true,reportId,items:items.length});
+}
+
+async function adminFiscalizacaoList(request, env) {
+  await requireDb(env);
+  const u=new URL(request.url),from=u.searchParams.get('from'),to=u.searchParams.get('to'),inspector=u.searchParams.get('inspector'),category=u.searchParams.get('category');
+  let q=`SELECT r.id,r.name,r.report_date,r.inspector,r.notes,
+    COUNT(DISTINCT i.id) items_count,COUNT(e.id) evidence_count,
+    COUNT(DISTINCT CASE WHEN TRIM(COALESCE(i.block,''))<>'' THEN i.block END) blocks_count
+    FROM fiscalizacao_reports r LEFT JOIN fiscalizacao_items i ON i.report_id=r.id LEFT JOIN fiscalizacao_evidences e ON e.item_id=i.id WHERE 1=1`;
+  const a=[]; if(from){q+=' AND date(r.report_date)>=date(?)';a.push(from)} if(to){q+=' AND date(r.report_date)<=date(?)';a.push(to)} if(inspector){q+=' AND lower(r.inspector) LIKE lower(?)';a.push('%'+inspector+'%')} if(category){q+=' AND i.category=?';a.push(category)}
+  q+=' GROUP BY r.id ORDER BY r.report_date DESC,r.updated_at DESC'; const rows=await env.DB.prepare(q).bind(...a).all(); return json(rows.results||[]);
+}
+async function adminFiscalizacaoDetail(request, env, reportId){
+  await requireDb(env); const r=await env.DB.prepare('SELECT * FROM fiscalizacao_reports WHERE id=?').bind(reportId).first(); if(!r)return json({error:'Fiscalização não encontrada.'},404);
+  const items=await env.DB.prepare('SELECT * FROM fiscalizacao_items WHERE report_id=? ORDER BY CAST(block AS INTEGER),block,unit').bind(reportId).all();
+  const evid=await env.DB.prepare(`SELECT e.*,i.block,i.unit,i.category FROM fiscalizacao_evidences e JOIN fiscalizacao_items i ON i.id=e.item_id WHERE i.report_id=? ORDER BY e.created_at`).bind(reportId).all();
+  return json({...r,items:items.results||[],evidences:evid.results||[]});
+}
+
+
+async function syncDiario(request, env) {
+  await requireDb(env);
+  const form = await request.formData();
+  let payload;
+  try { payload = JSON.parse(String(form.get('payload') || '{}')); } catch { return json({error:'Dados do diário inválidos.'},400); }
+  if (!payload.id) return json({error:'Diário sem identificador.'},400);
+  const t=now();
+  const existing=await env.DB.prepare('SELECT id FROM diario_reports WHERE source_local_id=?').bind(String(payload.id)).first();
+  const reportId=existing?.id || id();
+  await env.DB.prepare(`INSERT INTO diario_reports(id,employee,started_at,ended_at,general_notes,source_local_id,created_at,updated_at)
+    VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(source_local_id) DO UPDATE SET employee=excluded.employee,started_at=excluded.started_at,ended_at=excluded.ended_at,general_notes=excluded.general_notes,updated_at=excluded.updated_at`)
+    .bind(reportId,payload.employee||'',payload.startedAt||null,payload.endedAt||null,payload.generalNotes||'',String(payload.id),existing?null:t,t).run();
+  const services=Array.isArray(payload.services)?payload.services:[];
+  const files=form.getAll('photos');
+  let meta=[]; try{meta=JSON.parse(String(form.get('photoMeta')||'[]'));}catch{}
+  for(const old of services){
+    const existingSvc=await env.DB.prepare('SELECT id FROM diario_services WHERE report_id=? AND source_local_id=?').bind(reportId,String(old.id)).first().catch(()=>null);
+    const serviceId=existingSvc?.id||id();
+    // source_local_id is added in migration 0006 if absent from older DBs.
+    await env.DB.prepare(`INSERT INTO diario_services(id,report_id,title,location,notes,source_local_id,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(report_id,source_local_id) DO UPDATE SET title=excluded.title,location=excluded.location,notes=excluded.notes,updated_at=excluded.updated_at`)
+      .bind(serviceId,reportId,old.title||'',old.location||'',old.notes||'',String(old.id),existingSvc?null:t,t).run();
+    await env.DB.prepare('DELETE FROM diario_materials WHERE service_id=?').bind(serviceId).run();
+    for(const m of (Array.isArray(old.materials)?old.materials:[])){
+      await env.DB.prepare('INSERT INTO diario_materials(id,service_id,name,qty,unit,created_at) VALUES(?,?,?,?,?,?)').bind(id(),serviceId,m.name||'',m.qty||'',m.unit||'',t).run();
+    }
+    const photos=Array.isArray(old.photos)?old.photos:[];
+    for(let j=0;j<photos.length;j++){
+      const p=photos[j]||{}, mm=meta.find(x=>x.serviceId===old.id&&Number(x.photoIndex)===j), fileIndex=mm?Number(mm.fileIndex):-1, file=fileIndex>=0?files[fileIndex]:null;
+      if(file instanceof File && file.size){
+        const key=`diario/${reportId}/${serviceId}/${p.id||j}-${safeName(file.name||'evidencia.jpg')}`;
+        await env.BUCKET.put(key,file.stream(),{httpMetadata:{contentType:file.type||'image/jpeg'}});
+        const exists=await env.DB.prepare('SELECT id FROM diario_evidences WHERE service_id=? AND r2_key=?').bind(serviceId,key).first();
+        if(!exists) await env.DB.prepare(`INSERT INTO diario_evidences(id,service_id,r2_key,filename,content_type,size,taken_at,time_verified,source,note,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+          .bind(id(),serviceId,key,file.name||'evidencia.jpg',file.type||'image/jpeg',file.size,p.takenAtIso||null,p.timeVerified?1:0,p.source||'',p.note||'',t).run();
+      }
+    }
+  }
+  return json({ok:true,reportId,services:services.length});
+}
+
+async function adminDiarioList(request, env) {
+  await requireDb(env);
+  const u=new URL(request.url),from=u.searchParams.get('from'),to=u.searchParams.get('to'),employee=u.searchParams.get('employee'),location=u.searchParams.get('location');
+  let q=`SELECT r.id,r.employee,r.started_at,r.ended_at,r.general_notes,
+    COUNT(DISTINCT s.id) services_count,COUNT(DISTINCT m.id) materials_count,COUNT(e.id) evidence_count
+    FROM diario_reports r LEFT JOIN diario_services s ON s.report_id=r.id LEFT JOIN diario_materials m ON m.service_id=s.id LEFT JOIN diario_evidences e ON e.service_id=s.id WHERE 1=1`;
+  const a=[];
+  if(from){q+=' AND date(r.started_at)>=date(?)';a.push(from)} if(to){q+=' AND date(r.started_at)<=date(?)';a.push(to)}
+  if(employee){q+=' AND lower(r.employee) LIKE lower(?)';a.push('%'+employee+'%')} if(location){q+=' AND lower(COALESCE(s.location,\'\')) LIKE lower(?)';a.push('%'+location+'%')}
+  q+=' GROUP BY r.id ORDER BY r.started_at DESC,r.updated_at DESC';
+  const rows=await env.DB.prepare(q).bind(...a).all(); return json(rows.results||[]);
+}
+async function adminDiarioDetail(request, env, reportId) {
+  await requireDb(env);
+  const r=await env.DB.prepare('SELECT * FROM diario_reports WHERE id=?').bind(reportId).first(); if(!r)return json({error:'Diário não encontrado.'},404);
+  const services=await env.DB.prepare('SELECT * FROM diario_services WHERE report_id=? ORDER BY created_at').bind(reportId).all();
+  const materials=await env.DB.prepare(`SELECT m.*,s.title AS service_title FROM diario_materials m JOIN diario_services s ON s.id=m.service_id WHERE s.report_id=? ORDER BY m.created_at`).bind(reportId).all();
+  const evid=await env.DB.prepare(`SELECT e.*,s.title AS service_title,s.location FROM diario_evidences e JOIN diario_services s ON s.id=e.service_id WHERE s.report_id=? ORDER BY e.created_at`).bind(reportId).all();
+  return json({...r,services:services.results||[],materials:materials.results||[],evidences:evid.results||[]});
+}
+
 async function uploadEvidence(request, env, cycleId) {
   await requireDb(env);
   const cycle = await env.DB.prepare('SELECT * FROM cycles WHERE id=?').bind(cycleId).first();
@@ -287,13 +463,22 @@ async function downloadObject(env,key,download=false) {
 export default { async fetch(request, env) {
   try {
     const url=new URL(request.url); const path=url.pathname.replace(/\/+$/,'')||'/';
-    const isAdminPath = path === '/adm-rateio.html' || path.startsWith('/api/adm-rateio') || path.startsWith('/api/files/');
+    const isAdminPath = path === '/adm-rateio.html' || path === '/adm.html' || path === '/adm-ronda.html' || path === '/adm-fiscalizacao.html' || path === '/adm-diario.html' || path.startsWith('/api/adm-rateio') || path.startsWith('/api/adm/ronda') || path.startsWith('/api/adm/fiscalizacao') || path.startsWith('/api/adm/diario') || path.startsWith('/api/files/');
     const isWorkersDev = url.hostname.endsWith('.workers.dev');
     if (isAdminPath && url.hostname !== ADMIN_HOST && !isWorkersDev) {
       return json({error:`Módulo administrativo disponível somente em https://${ADMIN_HOST}`},403);
     }
     if(path==='/api/health') return json({ok:true,d1:!!env.DB,r2:!!env.BUCKET});
     if(path==='/api/leiturista/sync' && request.method==='POST') return syncLeiturista(request,env);
+    if(path==='/api/ronda/sync' && request.method==='POST') return syncRonda(request,env);
+    if(path==='/api/fiscalizacao/sync' && request.method==='POST') return syncFiscalizacao(request,env);
+    if(path==='/api/diario/sync' && request.method==='POST') return syncDiario(request,env);
+    if(path==='/api/adm/fiscalizacao' && request.method==='GET') return adminFiscalizacaoList(request,env);
+    if(path==='/api/adm/diario' && request.method==='GET') return adminDiarioList(request,env);
+    m=path.match(/^\/api\/adm\/fiscalizacao\/([^/]+)$/); if(m && request.method==='GET') return adminFiscalizacaoDetail(request,env,m[1]);
+    m=path.match(/^\/api\/adm\/diario\/([^/]+)$/); if(m && request.method==='GET') return adminDiarioDetail(request,env,m[1]);
+    if(path==='/api/adm/ronda' && request.method==='GET') return adminRondaList(request,env);
+    m=path.match(/^\/api\/adm\/ronda\/([^/]+)$/); if(m && request.method==='GET') return adminRondaDetail(request,env,m[1]);
     let m=path.match(/^\/api\/leiturista\/cycles\/([^/]+)\/evidence$/); if(m && request.method==='POST') return uploadEvidence(request,env,m[1]);
     if(path==='/api/adm-rateio/cycles' && request.method==='GET') return adminList(request,env);
     m=path.match(/^\/api\/adm-rateio\/cycles\/([^/]+)$/); if(m && request.method==='GET') { const c=await getCycle(env,m[1]); return c?json(c):json({error:'Ciclo não encontrado.'},404); }
