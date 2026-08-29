@@ -17,23 +17,22 @@ function renderReadings(){
   const factor=num(c.conversionFactor)||1;
   const invoice=num(c.invoiceConsumption);
   const units=Math.max(1,Number(c.unitsPerBlock||16));
-  const totalUnits=units*26;
+  const blockCount=Math.max(1,Number(blexoConfig?.().blockCount||26));
+  const totalUnits=units*blockCount;
   const blocks=rows.filter(r=>!isCommonArea(r.block_code));
   const common=rows.filter(r=>isCommonArea(r.block_code));
   const allRows=rows;
-  const blockSum=blocks.reduce((s,r)=>{
-    const p=num(document.querySelector(`[data-prev="${r.id}"]`)?.value??r.previous_value),a=num(document.querySelector(`[data-current="${r.id}"]`)?.value??r.current_value);
-    return s+(p!=null&&a!=null?Math.max(0,a-p)*factor:0);
-  },0);
-  const commonSum=common.reduce((s,r)=>{
-    const p=num(document.querySelector(`[data-prev="${r.id}"]`)?.value??r.previous_value),a=num(document.querySelector(`[data-current="${r.id}"]`)?.value??r.current_value);
-    return s+(p!=null&&a!=null?Math.max(0,a-p)*factor:0);
-  },0);
+  const consumptionOf=r=>{
+    const p=num(document.querySelector(`[data-prev="${r.id}"]`)?.value??r.previous_value);
+    const a=num(document.querySelector(`[data-current="${r.id}"]`)?.value??r.current_value);
+    return p!=null&&a!=null?Math.max(0,a-p)*factor:0;
+  };
+  const blockSum=blocks.reduce((s,r)=>s+consumptionOf(r),0);
+  const commonSum=common.reduce((s,r)=>s+consumptionOf(r),0);
   const denominator=invoice!=null&&invoice>0?invoice:(blockSum+commonSum);
   const total=Number(c.totalValue||0);
   const commonCostTotal=denominator>0?total*(commonSum/denominator):0;
   const commonPerUnit=totalUnits>0?commonCostTotal/totalUnits:0;
-  const avg=blocks.length?blockSum/blocks.length:0;
   const rowHtml=(r)=>{
     const p=num(r.previous_value),a=num(r.current_value);
     const delta=p!=null&&a!=null?Math.max(0,a-p):null;
@@ -51,7 +50,7 @@ function renderReadings(){
       <td>${pct.toLocaleString('pt-BR',{maximumFractionDigits:3})}%</td>
       <td>${money(amount)}</td>
       <td>${commonRow?'—':money(perApto)}</td>
-      <td>${commonRow?money(commonPerUnit):'—'}</td>
+      <td>${commonRow?money(amount):money(commonPerUnit)}</td>
       <td>${commonRow?'—':money(finalPerApto)}</td>
       <td><input class="correction-check" data-corrected="${r.id}" type="checkbox" ${r.corrected?'checked':''}></td>
       <td><input data-reason="${r.id}" value="${r.correction_reason||''}" placeholder="Motivo da correção"></td>
@@ -61,7 +60,8 @@ function renderReadings(){
   const commonRows=common.map(rowHtml).join('');
   const commonTotalRow=`<tr class="common-total-row">
     <td colspan="6"><strong>Total áreas comuns</strong></td>
-    <td colspan="2"><strong>${money(commonPerUnit)}</strong><small class="table-note"> por unidade / 416 aptos</small></td>
+    <td><strong>${money(commonCostTotal)}</strong></td>
+    <td><strong>${money(commonPerUnit)}</strong><small class="table-note"> por unidade / ${totalUnits} aptos</small></td>
     <td><strong>Rateio comum por unidade</strong></td><td colspan="2"></td>
   </tr>`;
   $('readingsTable').querySelector('tbody').innerHTML=
@@ -96,7 +96,8 @@ function renderSummary(){
   const denominator=inv!=null&&inv>0?inv:totalConsumption;
   const total=Number(c.totalValue||0);
   const commonAmount=denominator>0?total*commonSum/denominator:0;
-  const commonPerUnit=commonAmount/(Math.max(1,Number(c.unitsPerBlock||16))*26);
+  const blockCount=Math.max(1,Number(blexoConfig?.().blockCount||26));
+  const commonPerUnit=commonAmount/(Math.max(1,Number(c.unitsPerBlock||16))*blockCount);
   const avg=blockRows.length?blockSum/blockRows.length:0;
   $('summary').innerHTML=[
     ['Valor das contas',money(total)],
