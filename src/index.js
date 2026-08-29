@@ -79,7 +79,7 @@ async function syncLeiturista(request, env) {
           ON CONFLICT(cycle_id,block_code) DO UPDATE SET
             previous_value=excluded.previous_value,current_value=excluded.current_value,
             measured_value=excluded.measured_value,source_group_id=excluded.source_group_id,updated_at=excluded.updated_at
-          WHERE readings.corrected=0`).bind(
+          WHERE readings.corrected=0 AND readings.excluded=0`).bind(
             rid, cycleId, String(r.blockCode||''), previous, current, measured, 0, null, r.sourceGroupId||null, t).run();
       }
     }
@@ -149,7 +149,7 @@ function calculate(cycle, readings, costs) {
 async function getCycle(env, cycleId) {
   const cycle = await env.DB.prepare('SELECT * FROM cycles WHERE id=?').bind(cycleId).first();
   if (!cycle) return null;
-  const readings = await env.DB.prepare('SELECT * FROM readings WHERE cycle_id=? ORDER BY CAST(block_code AS INTEGER), block_code').bind(cycleId).all();
+  const readings = await env.DB.prepare('SELECT * FROM readings WHERE cycle_id=? AND excluded=0 ORDER BY CAST(block_code AS INTEGER), block_code').bind(cycleId).all();
   const costs = await env.DB.prepare('SELECT * FROM cost_items WHERE cycle_id=? ORDER BY created_at').bind(cycleId).all();
   const evidences = await env.DB.prepare('SELECT id,utility,meter,r2_key,filename,content_type,size,created_at FROM evidences WHERE cycle_id=? ORDER BY created_at').bind(cycleId).all();
   const report=await env.DB.prepare('SELECT pdf_key FROM collection_reports WHERE id=?').bind(cycle.report_id).first();
@@ -187,27 +187,47 @@ async function adminSaveCycle(request, env, cycleId) {
     for(const r of p.readings) {
       const current=num(r.currentValue), previous=num(r.previousValue);
       const measured = previous!==null && current!==null ? current-previous : null;
-      await env.DB.prepare(`UPDATE readings SET previous_value=?,current_value=?,measured_value=?,corrected=?,correction_reason=?,updated_at=? WHERE id=? AND cycle_id=?`).bind(
+      await env.DB.prepare(`UPDATE readings SET previous_value=?,current_value=?,measured_value=?,corrected=?,correction_reason=?,updated_at=? WHERE id=? AND cycle_id=? AND excluded=0`).bind(
         previous,current,measured,r.corrected?1:0,r.correctionReason||null,t,r.id,cycleId).run();
     }
   }
   return json(await getCycle(env,cycleId));
 }
 
-async function closeCycle(request, env, cycleId) {
+async function excludeReading(request, env, cycleId, readingId) {
   await requireDb(env);
   const cycle=await env.DB.prepare('SELECT * FROM cycles WHERE id=?').bind(cycleId).first();
   if(!cycle) return json({error:'Ciclo não encontrado.'},404);
-  if(cycle.status==='CLOSED') return json({error:'Ciclo já está fechado.'},409);
+  if(cycle.status==='CLOSED') return json({error:'Ciclo fechado. Reabra o ciclo antes de excluir uma leitura.'},409);
+  const reading=await env.DB.prepare('SELECT id,block_code FROM readings WHERE id=? AND cycle_id=? AND excluded=0').bind(readingId,cycleId).first();
+  if(!reading) return json({error:'Leitura não encontrada.'},404);
+  await env.DB.prepare('UPDATE readings SET excluded=1,updated_at=? WHERE id=? AND cycle_id=?').bind(now(),readingId,cycleId).run();
+  await env.DB.prepare('DELETE FROM rateio_results WHERE cycle_id=?').bind(cycleId).run();
+  return json({ok:true,excluded:{id:reading.id,block_code:reading.block_code},cycle:await getCycle(env,cycleId)});
+}
+
+async function reopenCycle(request, env, cycleId) {
+  await requireDb(env);
+  const cycle=await env.DB.prepare('SELECT * FROM cycles WHERE id=?').bind(cycleId).first();
+  if(!cycle) return json({error:'Ciclo não encontrado.'},404);
+  if(cycle.status!=='CLOSED') return json({error:'O ciclo já está aberto.'},409);
+  const t=now();
+  await env.DB.prepare('UPDATE cycles SET status=\'OPEN\',closed_at=NULL,updated_at=? WHERE id=?').bind(t,cycleId).run();
+  await env.DB.prepare('DELETE FROM rateio_results WHERE cycle_id=?').bind(cycleId).run();
+  return json(await getCycle(env,cycleId));
+}
+
+async function writeRateioResults(env, cycleId) {
   const detail=await getCycle(env,cycleId);
+  const cycle=detail;
   const calc=detail.calculation;
-  if(!detail.readings.length) return json({error:'Não há leituras para fechar o ciclo.'},400);
-  if(detail.readings.some(r=>r.previous_value===null || r.current_value===null || Number(r.measured_value)<0)) return json({error:'Existem leituras incompletas ou negativas.'},400);
+  if(!detail.readings.length) throw new Error('Não há leituras para recalcular o ciclo.');
+  if(detail.readings.some(r=>r.previous_value===null || r.current_value===null || Number(r.measured_value)<0)) throw new Error('Existem leituras incompletas ou negativas.');
   if(cycle.utility==='water' && Number(cycle.invoice_consumption||0)>0) {
     const diff = Math.abs((calc.blockSum + calc.commonSum) - Number(cycle.invoice_consumption));
-    if(diff>0.01) return json({error:`O consumo dos blocos + áreas comuns não fecha com o consumo da fatura. Diferença: ${diff.toFixed(2)}.`},400);
+    if(diff>0.01) throw new Error(`O consumo dos blocos + áreas comuns não fecha com o consumo da fatura. Diferença: ${diff.toFixed(2)}.`);
   }
-  if(calc.totalValue<=0) return json({error:'Informe pelo menos um valor de conta/fatura antes do fechamento.'},400);
+  if(calc.totalValue<=0) throw new Error('Informe pelo menos um valor de conta/fatura antes do recálculo.');
   const t=now();
   await env.DB.prepare('DELETE FROM rateio_results WHERE cycle_id=?').bind(cycleId).run();
   const invoice = Number(cycle.invoice_consumption || 0);
@@ -230,14 +250,37 @@ async function closeCycle(request, env, cycleId) {
       VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(
       id(), cycleId, r.block_code, measured, converted, pct, blockAmount, condoAmount, apartmentAmount, t).run();
   }
-  await env.DB.prepare('UPDATE cycles SET status=\'CLOSED\',closed_at=?,updated_at=? WHERE id=?').bind(t,t,cycleId).run();
-  return json(await getCycle(env,cycleId));
+  return await getCycle(env,cycleId);
 }
 
-async function downloadObject(env,key) {
+async function recalculateCycle(request, env, cycleId) {
+  await requireDb(env);
+  const cycle=await env.DB.prepare('SELECT * FROM cycles WHERE id=?').bind(cycleId).first();
+  if(!cycle) return json({error:'Ciclo não encontrado.'},404);
+  if(cycle.status==='CLOSED') return json({error:'Ciclo fechado. Reabra o ciclo antes de recalcular.'},409);
+  try { return json(await writeRateioResults(env,cycleId)); }
+  catch(e) { return json({error:e?.message||'Não foi possível recalcular o ciclo.'},400); }
+}
+
+async function closeCycle(request, env, cycleId) {
+  await requireDb(env);
+  const cycle=await env.DB.prepare('SELECT * FROM cycles WHERE id=?').bind(cycleId).first();
+  if(!cycle) return json({error:'Ciclo não encontrado.'},404);
+  if(cycle.status==='CLOSED') return json({error:'Ciclo já está fechado.'},409);
+  try {
+    const detail=await writeRateioResults(env,cycleId);
+    const t=now();
+    await env.DB.prepare('UPDATE cycles SET status=\'CLOSED\',closed_at=?,updated_at=? WHERE id=?').bind(t,t,cycleId).run();
+    return json(await getCycle(env,cycleId));
+  } catch(e) { return json({error:e?.message||'Não foi possível fechar o ciclo.'},400); }
+}
+
+async function downloadObject(env,key,download=false) {
   const obj=await env.BUCKET.get(key);
   if(!obj) return new Response('Arquivo não encontrado.',{status:404});
   const headers=new Headers(); obj.writeHttpMetadata(headers); headers.set('etag',obj.httpEtag); headers.set('cache-control','private, max-age=3600');
+  if(download) headers.set('content-disposition',`attachment; filename="${safeName(key.split('/').pop()||'arquivo')}"`);
+  else if(!headers.has('content-type')) headers.set('content-type','application/octet-stream');
   return new Response(obj.body,{headers});
 }
 
@@ -255,8 +298,11 @@ export default { async fetch(request, env) {
     if(path==='/api/adm-rateio/cycles' && request.method==='GET') return adminList(request,env);
     m=path.match(/^\/api\/adm-rateio\/cycles\/([^/]+)$/); if(m && request.method==='GET') { const c=await getCycle(env,m[1]); return c?json(c):json({error:'Ciclo não encontrado.'},404); }
     if(m && request.method==='PUT') return adminSaveCycle(request,env,m[1]);
+    m=path.match(/^\/api\/adm-rateio\/cycles\/([^/]+)\/reopen$/); if(m && request.method==='POST') return reopenCycle(request,env,m[1]);
+    m=path.match(/^\/api\/adm-rateio\/cycles\/([^/]+)\/recalculate$/); if(m && request.method==='POST') return recalculateCycle(request,env,m[1]);
+    m=path.match(/^\/api\/adm-rateio\/cycles\/([^/]+)\/readings\/([^/]+)$/); if(m && request.method==='DELETE') return excludeReading(request,env,m[1],m[2]);
     m=path.match(/^\/api\/adm-rateio\/cycles\/([^/]+)\/close$/); if(m && request.method==='POST') return closeCycle(request,env,m[1]);
-    m=path.match(/^\/api\/files\/(.+)$/); if(m && request.method==='GET') return downloadObject(env,m[1]);
+    m=path.match(/^\/api\/files\/(.+)$/); if(m && request.method==='GET') { const u=new URL(request.url); return downloadObject(env,m[1],u.searchParams.get('download')==='1'); }
     if(path.startsWith('/api/')) return json({error:'Endpoint não encontrado.'},404);
     return env.ASSETS.fetch(request);
   } catch (e) {

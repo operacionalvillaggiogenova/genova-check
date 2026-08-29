@@ -5,7 +5,18 @@ const fmt=v=>v==null||v===''?'—':Number(v).toLocaleString('pt-BR',{maximumFrac
 async function api(path,options={}){const r=await fetch('/api'+path,{...options,headers:{...(options.headers||{})}});let d=null;try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error||`Erro HTTP ${r.status}`);return d}
 async function refresh(){try{$('status').textContent='● Atualizando…';const rows=await api(`/adm-rateio/cycles?utility=${utility}`);$('cycles').innerHTML=rows.length?rows.map(r=>`<div class="cycle-row"><button data-cycle="${r.id}"><span class="cycle-name">${utility==='water'?'💧':'🔥'} ${r.reference||'Sem competência'}</span><span class="cycle-sub">${r.name||'Leitura mensal'} · ${r.report_date||''}</span></button><span class="status-pill ${r.status==='CLOSED'?'closed':''}">${r.status==='CLOSED'?'FECHADO':'ABERTO'}</span><span class="cycle-extra">${money(r.total_value)}</span><button class="secondary-button" data-cycle="${r.id}">Abrir</button></div>`).join(''):'<p class="hint">Nenhum ciclo recebido para este tipo.</p>';document.querySelectorAll('[data-cycle]').forEach(b=>b.onclick=()=>openCycle(b.dataset.cycle));$('status').textContent='● Online';}catch(e){$('status').textContent='● Erro';$('cycles').innerHTML=`<p class="hint">${e.message}</p>`}}
 async function openCycle(id){try{current=await api(`/adm-rateio/cycles/${id}`);renderDetail()}catch(e){alert(e.message)}}
-function renderDetail(){const c=current; $('detail').hidden=false;$('detailTitle').textContent=`${c.utility==='water'?'Água':'Gás'} · ${c.reference||'Sem competência'}`;$('detailMeta').textContent=`${c.name||'Relatório'} · ${c.report_date||''} · ${c.status==='CLOSED'?'Ciclo fechado':'Ciclo aberto para conferência'}`;$('reference').value=c.reference||'';$('invoiceConsumption').value=c.invoice_consumption??'';$('factor').value=c.conversion_factor??1;$('units').value=c.units_per_block??16;$('condoConsumption').value=c.condo_consumption??0;$('notes').value=c.notes||'';$('closeCycle').disabled=c.status==='CLOSED';$('save').disabled=c.status==='CLOSED';$('pdfLink').hidden=!c.pdf_key;$('pdfLink').href=c.pdf_key?'/api/files/'+c.pdf_key:'';renderCosts();renderReadings();renderSummary();$('closedLabel').textContent=c.status==='CLOSED'?`Fechado em ${new Date(c.closed_at).toLocaleString('pt-BR')}`:'';window.scrollTo({top:document.getElementById('detail').offsetTop-20,behavior:'smooth'})}
+function renderDetail(){const c=current; $('detail').hidden=false;$('detailTitle').textContent=`${c.utility==='water'?'Água':'Gás'} · ${c.reference||'Sem competência'}`;$('detailMeta').textContent=`${c.name||'Relatório'} · ${c.report_date||''} · ${c.status==='CLOSED'?'Ciclo fechado':'Ciclo aberto para conferência'}`;$('reference').value=c.reference||'';$('invoiceConsumption').value=c.invoice_consumption??'';$('factor').value=c.conversion_factor??1;$('units').value=c.units_per_block??16;$('condoConsumption').value=c.condo_consumption??0;$('notes').value=c.notes||'';$('closeCycle').hidden=c.status==='CLOSED';$('closeCycle').disabled=c.status==='CLOSED';$('save').disabled=c.status==='CLOSED';$('recalculate').disabled=c.status==='CLOSED';$('reopenCycle').hidden=c.status!=='CLOSED';renderCosts();renderReadings();renderSummary();renderEvidence();$('closedLabel').textContent=c.status==='CLOSED'?`Fechado em ${new Date(c.closed_at).toLocaleString('pt-BR')}`:'';window.scrollTo({top:document.getElementById('detail').offsetTop-20,behavior:'smooth'})}
+function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}
+function renderEvidence(){
+  const list=[];
+  if(current.pdf_key) list.push(`<div class="evidence-item"><div><strong>PDF de evidências do relatório</strong><small>Documento principal enviado pelo Leiturista</small></div><div class="evidence-actions"><a class="secondary-button" href="/api/files/${encodeURIComponent(current.pdf_key).replaceAll('%2F','/')}" target="_blank" rel="noopener">👁 Consultar</a><a class="secondary-button" href="/api/files/${encodeURIComponent(current.pdf_key).replaceAll('%2F','/')}?download=1">⬇ Baixar</a></div></div>`);
+  for(const e of (current.evidences||[])){
+    const key=encodeURIComponent(e.r2_key).replaceAll('%2F','/');
+    list.push(`<div class="evidence-item"><div><strong>${escapeHtml(e.filename||'Evidência')}</strong><small>${escapeHtml(e.utility||'')} ${e.meter?'· '+escapeHtml(e.meter):''} · ${e.size?Math.ceil(e.size/1024)+' KB':''}</small></div><div class="evidence-actions"><a class="secondary-button" href="/api/files/${key}" target="_blank" rel="noopener">👁 Consultar</a><a class="secondary-button" href="/api/files/${key}?download=1">⬇ Baixar</a></div></div>`);
+  }
+  $('evidenceList').innerHTML=list.length?list.join(''):'<p class="hint">Nenhum PDF ou evidência armazenado para este ciclo.</p>';
+}
+
 function renderCosts(){const rows=c=>`<div class="cost-row"><input data-cost-desc placeholder="Descrição" value="${(c.description||'').replace(/"/g,'&quot;')}"><input data-cost-invoice placeholder="NF / fatura" value="${(c.invoice_number||'').replace(/"/g,'&quot;')}"><input data-cost-amount type="number" step="0.01" value="${c.amount??0}"><button class="remove-cost" type="button">×</button></div>`;$('costs').innerHTML=(current.costs||[]).map(rows).join('');document.querySelectorAll('.remove-cost').forEach(b=>b.onclick=()=>{b.parentElement.remove();renderSummary()});document.querySelectorAll('[data-cost-amount]').forEach(x=>x.oninput=renderSummary)}
 function normalizeAreaName(value){
   return String(value||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
@@ -62,7 +73,7 @@ function renderReadings(){
       <td>${commonRow?'—':money(perApto)}</td>
       <td>${commonRow?money(amount):money(commonPerUnit)}</td>
       <td>${commonRow?'—':money(finalPerApto)}</td>
-      <td><input class="correction-check" data-corrected="${r.id}" type="checkbox" ${r.corrected?'checked':''}></td>
+      <td><input class="correction-check" data-corrected="${r.id}" type="checkbox" ${r.corrected?'checked':''}></td><td><button type="button" class="danger-button delete-reading" data-delete-reading="${r.id}">Excluir</button></td>
       <td><input data-reason="${r.id}" value="${r.correction_reason||''}" placeholder="Motivo da correção"></td>
     </tr>`;
   };
@@ -80,7 +91,7 @@ function renderReadings(){
     <td><strong>${fmt(blockSum)}</strong></td>
     <td><strong>${blockPct.toLocaleString('pt-BR',{maximumFractionDigits:3})}%</strong></td>
     <td><strong>${money(blockCostTotal)}</strong></td>
-    <td colspan="5"></td>
+    <td colspan="6"></td>
   </tr>`;
   const commonTotalRow=`<tr class="common-total-row">
     <td colspan="3"><strong>Subtotal áreas comuns</strong></td>
@@ -89,12 +100,13 @@ function renderReadings(){
     <td><strong>${money(commonCostTotal)}</strong></td>
     <td>—</td>
     <td><strong>${money(commonPerUnit)}</strong><small class="table-note"> por unidade / ${totalUnits} aptos</small></td>
-    <td colspan="3"></td>
+    <td colspan="4"></td>
   </tr>`;
   $('readingsTable').querySelector('tbody').innerHTML=
-    (blockRows?`<tr class="group-title-row"><td colspan="11"><strong>BLOCOS</strong></td></tr>${blockRows}${blockSubtotalRow}`:'')+
-    (commonRows?`<tr class="group-title-row"><td colspan="11"><strong>ÁREAS COMUNS</strong></td></tr>${commonRows}${commonTotalRow}`:'')+
-    (!allRows.length?'<tr><td colspan="11">Nenhuma leitura recebida.</td></tr>':'');
+    (blockRows?`<tr class="group-title-row"><td colspan="12"><strong>BLOCOS</strong></td></tr>${blockRows}${blockSubtotalRow}`:'')+
+    (commonRows?`<tr class="group-title-row"><td colspan="12"><strong>ÁREAS COMUNS</strong></td></tr>${commonRows}${commonTotalRow}`:'')+
+    (!allRows.length?'<tr><td colspan="12">Nenhuma leitura recebida.</td></tr>':'');
+  document.querySelectorAll('[data-delete-reading]').forEach(b=>b.onclick=()=>deleteReading(b.dataset.deleteReading));
   document.querySelectorAll('[data-prev],[data-current]').forEach(x=>x.oninput=()=>{
     const id=x.dataset.prev||x.dataset.current;
     const p=document.querySelector(`[data-prev="${id}"]`).value;
@@ -135,7 +147,16 @@ function renderSummary(){
     ['Status',current.status==='CLOSED'?'FECHADO':'ABERTO']
   ].map(x=>`<div class="summary-box"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
 }
+async function deleteReading(readingId){
+  if(!current||current.status==='CLOSED')return;
+  const row=(current.readings||[]).find(r=>r.id===readingId);
+  if(!row)return;
+  if(!confirm(`Excluir a leitura de ${row.block_code}? Ela deixará de participar do cálculo deste ciclo.`))return;
+  try{$('detailFeedback').textContent='Excluindo leitura…';current=await api(`/adm-rateio/cycles/${current.id}/readings/${readingId}`,{method:'DELETE'});renderDetail();await refresh();$('detailFeedback').textContent='✓ Leitura excluída do ciclo.'}catch(e){$('detailFeedback').textContent='Falha: '+e.message}}
+async function recalculate(){if(!current||current.status==='CLOSED')return;try{$('detailFeedback').textContent='Salvando e recalculando…';await api(`/adm-rateio/cycles/${current.id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(collect())});current=await api(`/adm-rateio/cycles/${current.id}/recalculate`,{method:'POST'});renderDetail();await refresh();$('detailFeedback').textContent='✓ Cálculo recalculado.'}catch(e){$('detailFeedback').textContent='Não foi possível recalcular: '+e.message}}
+async function reopen(){if(!current||current.status!=='CLOSED')return;if(!confirm('Reabrir este ciclo? As alterações voltarão a ser permitidas e o rateio fechado será descartado até novo recálculo/fechamento.'))return;try{$('detailFeedback').textContent='Reabrindo…';current=await api(`/adm-rateio/cycles/${current.id}/reopen`,{method:'POST'});renderDetail();await refresh();$('detailFeedback').textContent='✓ Ciclo reaberto para edição.'}catch(e){$('detailFeedback').textContent='Não foi possível reabrir: '+e.message}}
+
 async function save(){if(!current||current.status==='CLOSED')return;try{$('detailFeedback').textContent='Salvando…';current=await api(`/adm-rateio/cycles/${current.id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(collect())});renderDetail();$('detailFeedback').textContent='✓ Alterações salvas.';await refresh()}catch(e){$('detailFeedback').textContent='Falha: '+e.message}}
 async function closeCycle(){if(!current||current.status==='CLOSED')return;const c=collect();if(!confirm('Fechar este ciclo? Depois do fechamento, as leituras ficarão bloqueadas para edição.'))return;try{$('detailFeedback').textContent='Conferindo e fechando…';await api(`/adm-rateio/cycles/${current.id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(c)});current=await api(`/adm-rateio/cycles/${current.id}/close`,{method:'POST'});renderDetail();await refresh();$('detailFeedback').textContent='✓ Ciclo fechado com sucesso.'}catch(e){$('detailFeedback').textContent='Não foi possível fechar: '+e.message}}
-document.querySelectorAll('[data-utility]').forEach(b=>b.onclick=()=>{utility=b.dataset.utility;document.querySelectorAll('[data-utility]').forEach(x=>x.classList.toggle('active',x===b));$('detail').hidden=true;refresh()});$('refresh').onclick=refresh;$('save').onclick=save;$('closeCycle').onclick=closeCycle;$('addCost').onclick=()=>{const div=document.createElement('div');div.className='cost-row';div.innerHTML='<input data-cost-desc placeholder="Descrição"><input data-cost-invoice placeholder="NF / fatura"><input data-cost-amount type="number" step="0.01" value="0"><button class="remove-cost" type="button">×</button>';$('costs').appendChild(div);div.querySelector('.remove-cost').onclick=()=>{div.remove();renderSummary()};div.querySelector('[data-cost-amount]').oninput=renderSummary;renderSummary()};
+document.querySelectorAll('[data-utility]').forEach(b=>b.onclick=()=>{utility=b.dataset.utility;document.querySelectorAll('[data-utility]').forEach(x=>x.classList.toggle('active',x===b));$('detail').hidden=true;refresh()});$('refresh').onclick=refresh;$('save').onclick=save;$('recalculate').onclick=recalculate;$('reopenCycle').onclick=reopen;$('closeCycle').onclick=closeCycle;$('addCost').onclick=()=>{const div=document.createElement('div');div.className='cost-row';div.innerHTML='<input data-cost-desc placeholder="Descrição"><input data-cost-invoice placeholder="NF / fatura"><input data-cost-amount type="number" step="0.01" value="0"><button class="remove-cost" type="button">×</button>';$('costs').appendChild(div);div.querySelector('.remove-cost').onclick=()=>{div.remove();renderSummary()};div.querySelector('[data-cost-amount]').oninput=renderSummary;renderSummary()};
 refresh();
