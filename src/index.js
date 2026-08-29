@@ -12,8 +12,13 @@ const num = (v, fallback = null) => {
 const ADMIN_HOST = 'rateio.blexo.com.br';
 
 const safeName = (v='arquivo') => String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').slice(0,120);
-const COMMON_AREA_NAMES = new Set(['Salão 1','Salão 2','Academia']);
-const isCommonAreaReading = code => COMMON_AREA_NAMES.has(String(code || '').trim());
+const normalizeCommonAreaName = value => String(value || '').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
+const COMMON_AREA_NAMES = new Set(['salao 1','salao 2','academia']);
+const COMMON_AREA_ALIASES = new Map([['saloes 1','salao 1'],['saloes 2','salao 2']]);
+const isCommonAreaReading = code => {
+  const value = normalizeCommonAreaName(code);
+  return COMMON_AREA_NAMES.has(value) || COMMON_AREA_NAMES.has(COMMON_AREA_ALIASES.get(value));
+};
 
 
 async function requireDb(env) {
