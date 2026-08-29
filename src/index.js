@@ -462,7 +462,7 @@ async function downloadObject(env,key,download=false) {
 
 export default { async fetch(request, env) {
   try {
-    const url=new URL(request.url); const path=url.pathname.replace(/\/+$/,'')||'/';
+    const url=new URL(request.url); const path=url.pathname.replace(/\/+$/,'')||'/'; let m;
     const isAdminPath = path === '/adm-rateio.html' || path === '/adm.html' || path === '/adm-ronda.html' || path === '/adm-fiscalizacao.html' || path === '/adm-diario.html' || path.startsWith('/api/adm-rateio') || path.startsWith('/api/adm/ronda') || path.startsWith('/api/adm/fiscalizacao') || path.startsWith('/api/adm/diario') || path.startsWith('/api/files/');
     const isWorkersDev = url.hostname.endsWith('.workers.dev');
     if (isAdminPath && url.hostname !== ADMIN_HOST && !isWorkersDev) {
@@ -479,7 +479,7 @@ export default { async fetch(request, env) {
     m=path.match(/^\/api\/adm\/diario\/([^/]+)$/); if(m && request.method==='GET') return adminDiarioDetail(request,env,m[1]);
     if(path==='/api/adm/ronda' && request.method==='GET') return adminRondaList(request,env);
     m=path.match(/^\/api\/adm\/ronda\/([^/]+)$/); if(m && request.method==='GET') return adminRondaDetail(request,env,m[1]);
-    let m=path.match(/^\/api\/leiturista\/cycles\/([^/]+)\/evidence$/); if(m && request.method==='POST') return uploadEvidence(request,env,m[1]);
+    m=path.match(/^\/api\/leiturista\/cycles\/([^/]+)\/evidence$/); if(m && request.method==='POST') return uploadEvidence(request,env,m[1]);
     if(path==='/api/adm-rateio/cycles' && request.method==='GET') return adminList(request,env);
     m=path.match(/^\/api\/adm-rateio\/cycles\/([^/]+)$/); if(m && request.method==='GET') { const c=await getCycle(env,m[1]); return c?json(c):json({error:'Ciclo não encontrado.'},404); }
     if(m && request.method==='PUT') return adminSaveCycle(request,env,m[1]);

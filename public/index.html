@@ -16,7 +16,7 @@
 </header>
 <main>
   <section class="hero"><p class="eyebrow">FERRAMENTAS DE CAMPO</p><h1>Blexo-Suite</h1><p>Um único aplicativo para checagem, leitura e digitalização. Os dados permanecem no aparelho e as ferramentas continuam disponíveis offline.</p></section>
-  <section class="modules"><a class="module-card" href="/adm.html"><span class="module-icon">⚙</span><div><h2>Administração</h2><p>Central administrativa para relatórios, rateios e dados analíticos.</p></div><span class="arrow">→</span></a>
+  <section class="modules">
     <a class="module-card" href="/check.html"><span class="module-icon">✓</span><div><h2>Checagem e evidências</h2><p>Inspeções, fotos, observações e relatório fotográfico em PDF.</p></div><span class="arrow">→</span></a>
     <a class="module-card" href="/leiturista.html"><span class="module-icon">▣</span><div><h2>Leiturista</h2><p>Leituras de gás e água por bloco e área comum, com evidências.</p></div><span class="arrow">→</span></a>
     <a class="module-card" href="/scanner.html"><span class="module-icon">▤</span><div><h2>Scanner</h2><p>Fotografe documentos, corrija perspectiva e gere PDF.</p></div><span class="arrow">→</span></a>
@@ -68,4 +68,8 @@
 </form>
 </dialog>
 <script src="config.js?v=22"></script><script src="dashboard.js?v=22"></script>
+<script>
+// Atalho discreto para a central administrativa. Não é autenticação.
+addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='a'){e.preventDefault();location.href='/adm.html'}});
+</script>
 </body></html>

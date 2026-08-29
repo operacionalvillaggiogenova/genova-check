@@ -87,3 +87,7 @@ Use `npm run deploy` no Workers Builds para aplicar as migrations D1 e publicar 
 
 ### Deploy no Cloudflare
 O comando de deploy deve ser `npm run deploy`. Ele aplica as migrations do D1 `blexo-suite` remotamente e só depois publica o Worker.
+
+
+### Atalho administrativo
+A central `/adm.html` não aparece na tela inicial. Para acesso discreto, use **Ctrl+Shift+A**. Isso é apenas ocultação da interface; a proteção real deve ser feita posteriormente se houver necessidade.
