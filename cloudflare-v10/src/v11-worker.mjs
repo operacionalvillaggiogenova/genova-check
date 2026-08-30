@@ -4,6 +4,8 @@ import { activityEvidenceView, activityHistoryView, cookieValue, effectivePermis
 const SESSION_COOKIE = "blexo_v11_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SESSION_RENEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+let initializedForRuntime = false;
+let initializationPromise = null;
 const json = (data, status=200, headers={}) => new Response(JSON.stringify(data), {status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store",...headers}});
 const empty = (status=204, headers={}) => new Response(null,{status,headers:{"cache-control":"no-store",...headers}});
 const now = () => new Date().toISOString();
@@ -49,26 +51,41 @@ async function audit(env, actor, action, type=null, entity=null, details=null) {
   await env.DB.prepare("INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)").bind(id(),actor,action,type,entity,details?JSON.stringify(details):null,now()).run();
 }
 async function initialize(env) {
+  if (initializedForRuntime) return;
+  if (initializationPromise) return initializationPromise;
+  initializationPromise=initializeDatabase(env);
+  try { await initializationPromise; initializedForRuntime=true; }
+  catch (error) { initializationPromise=null; throw error; }
+}
+async function initializeDatabase(env) {
   if (!env.DB) throw new Error("D1 não configurado no Worker.");
   const t=now();
   const roleDefinitions=[["admin","Administrador"],["sindico","Síndico"],["zeladoria","Zeladoria"],["manutencao","Manutenção"],["limpeza","Limpeza"],["servicos_gerais","Serviços Gerais"],["leiturista","Leiturista"],["operador","Operador (legado)"]];
-  for (const [name,label] of roleDefinitions)
-    await env.DB.prepare("INSERT OR IGNORE INTO roles(id,name,label,created_at) VALUES(?,?,?,?)").bind(`role-${name}`,name,label,t).run();
-  for (const [module,action,label] of allPermissions)
-    await env.DB.prepare("INSERT OR IGNORE INTO permissions(id,module,action,label) VALUES(?,?,?,?)").bind(`permission-${module}-${action}`,module,action,label).run();
+  await env.DB.batch([
+    ...roleDefinitions.map(([name,label])=>env.DB.prepare("INSERT OR IGNORE INTO roles(id,name,label,created_at) VALUES(?,?,?,?)").bind(`role-${name}`,name,label,t)),
+    ...allPermissions.map(([module,action,label])=>env.DB.prepare("INSERT OR IGNORE INTO permissions(id,module,action,label) VALUES(?,?,?,?)").bind(`permission-${module}-${action}`,module,action,label)),
+  ]);
   // Older V11 installations can already contain the same role/permission names
   // with different primary keys. Resolve their real IDs instead of assuming the
   // IDs created by this release, otherwise D1 foreign keys reject the bootstrap.
-  const roleIds=Object.fromEntries((await rows(env.DB,"SELECT id,name FROM roles")).map(role=>[role.name,role.id]));
-  const permissionIds=Object.fromEntries((await rows(env.DB,"SELECT id,module,action FROM permissions")).map(permission=>[key(permission.module,permission.action),permission.id]));
+  const [roleResult,permissionResult]=await env.DB.batch([
+    env.DB.prepare("SELECT id,name FROM roles"),
+    env.DB.prepare("SELECT id,module,action FROM permissions"),
+  ]);
+  const roleIds=Object.fromEntries((roleResult.results||[]).map(role=>[role.name,role.id]));
+  const permissionIds=Object.fromEntries((permissionResult.results||[]).map(permission=>[key(permission.module,permission.action),permission.id]));
+  const accessStatements=[];
   for (const [role, permissionKeys] of Object.entries(grants))
     for (const permission of permissionKeys)
-      if (roleIds[role] && permissionIds[permission]) await env.DB.prepare("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) VALUES(?,?)").bind(roleIds[role],permissionIds[permission]).run();
+      if (roleIds[role] && permissionIds[permission]) accessStatements.push(env.DB.prepare("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) VALUES(?,?)").bind(roleIds[role],permissionIds[permission]));
   for (const role of ["zeladoria","operador"])
-    if (roleIds[role]) await env.DB.prepare("DELETE FROM role_permissions WHERE role_id=? AND permission_id IN (SELECT id FROM permissions WHERE module='legacy')").bind(roleIds[role]).run();
+    if (roleIds[role]) accessStatements.push(env.DB.prepare("DELETE FROM role_permissions WHERE role_id=? AND permission_id IN (SELECT id FROM permissions WHERE module='legacy')").bind(roleIds[role]));
   for (const [role, permissions] of Object.entries({zeladoria:["leiturista.sync","ronda.sync","fiscalizacao.sync","diario.sync"],operador:["leiturista.sync","ronda.sync","fiscalizacao.sync","diario.sync"]}))
     for (const permission of permissions)
-      if (roleIds[role] && permissionIds[permission]) await env.DB.prepare("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) VALUES(?,?)").bind(roleIds[role],permissionIds[permission]).run();
+      if (roleIds[role] && permissionIds[permission]) accessStatements.push(env.DB.prepare("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) VALUES(?,?)").bind(roleIds[role],permissionIds[permission]));
+  // Keep each D1 batch comfortably bounded while avoiding one round trip per grant.
+  for (let offset=0;offset<accessStatements.length;offset+=100)
+    await env.DB.batch(accessStatements.slice(offset,offset+100));
   const count=await one(env.DB,"SELECT COUNT(*) AS n FROM users");
   if (Number(count?.n) !== 0) return;
   const email=clean(env.BOOTSTRAP_ADMIN_EMAIL).toLowerCase(), password=env.BOOTSTRAP_ADMIN_PASSWORD;
