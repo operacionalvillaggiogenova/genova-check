@@ -51,24 +51,31 @@ async function audit(env, actor, action, type=null, entity=null, details=null) {
 async function initialize(env) {
   if (!env.DB) throw new Error("D1 não configurado no Worker.");
   const t=now();
-  for (const [name,label] of [["admin","Administrador"],["sindico","Síndico"],["zeladoria","Zeladoria"],["manutencao","Manutenção"],["limpeza","Limpeza"],["servicos_gerais","Serviços Gerais"],["leiturista","Leiturista"],["operador","Operador (legado)"]])
+  const roleDefinitions=[["admin","Administrador"],["sindico","Síndico"],["zeladoria","Zeladoria"],["manutencao","Manutenção"],["limpeza","Limpeza"],["servicos_gerais","Serviços Gerais"],["leiturista","Leiturista"],["operador","Operador (legado)"]];
+  for (const [name,label] of roleDefinitions)
     await env.DB.prepare("INSERT OR IGNORE INTO roles(id,name,label,created_at) VALUES(?,?,?,?)").bind(`role-${name}`,name,label,t).run();
   for (const [module,action,label] of allPermissions)
     await env.DB.prepare("INSERT OR IGNORE INTO permissions(id,module,action,label) VALUES(?,?,?,?)").bind(`permission-${module}-${action}`,module,action,label).run();
+  // Older V11 installations can already contain the same role/permission names
+  // with different primary keys. Resolve their real IDs instead of assuming the
+  // IDs created by this release, otherwise D1 foreign keys reject the bootstrap.
+  const roleIds=Object.fromEntries((await rows(env.DB,"SELECT id,name FROM roles")).map(role=>[role.name,role.id]));
+  const permissionIds=Object.fromEntries((await rows(env.DB,"SELECT id,module,action FROM permissions")).map(permission=>[key(permission.module,permission.action),permission.id]));
   for (const [role, permissionKeys] of Object.entries(grants))
     for (const permission of permissionKeys)
-      await env.DB.prepare("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) VALUES(?,?)").bind(`role-${role}`,`permission-${permission.replace(".", "-")}`).run();
+      if (roleIds[role] && permissionIds[permission]) await env.DB.prepare("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) VALUES(?,?)").bind(roleIds[role],permissionIds[permission]).run();
   for (const role of ["zeladoria","operador"])
-    await env.DB.prepare("DELETE FROM role_permissions WHERE role_id=? AND permission_id LIKE 'permission-legacy-%'").bind(`role-${role}`).run();
+    if (roleIds[role]) await env.DB.prepare("DELETE FROM role_permissions WHERE role_id=? AND permission_id IN (SELECT id FROM permissions WHERE module='legacy')").bind(roleIds[role]).run();
   for (const [role, permissions] of Object.entries({zeladoria:["leiturista.sync","ronda.sync","fiscalizacao.sync","diario.sync"],operador:["leiturista.sync","ronda.sync","fiscalizacao.sync","diario.sync"]}))
     for (const permission of permissions)
-      await env.DB.prepare("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) VALUES(?,?)").bind(`role-${role}`,`permission-${permission.replace(".", "-")}`).run();
+      if (roleIds[role] && permissionIds[permission]) await env.DB.prepare("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) VALUES(?,?)").bind(roleIds[role],permissionIds[permission]).run();
   const count=await one(env.DB,"SELECT COUNT(*) AS n FROM users");
   if (Number(count?.n) !== 0) return;
   const email=clean(env.BOOTSTRAP_ADMIN_EMAIL).toLowerCase(), password=env.BOOTSTRAP_ADMIN_PASSWORD;
   if (!email || !validPassword(password)) throw new Error("Nenhum usuário existe. Configure BOOTSTRAP_ADMIN_EMAIL e BOOTSTRAP_ADMIN_PASSWORD (mínimo de 8 caracteres) para criar o administrador inicial.");
   if (!email.includes("@")) throw new Error("BOOTSTRAP_ADMIN_EMAIL inválido.");
-  const admin="role-admin";
+  const admin=roleIds.admin;
+  if (!admin) throw new Error("Perfil administrador não encontrado no D1.");
   await env.DB.prepare("INSERT INTO users(id,name,email,password_hash,role_id,team,active,created_at) VALUES(?,?,?,?,?,?,1,?)").bind(id(),"Administrador Blexo",email,await hashPassword(password),admin,"ADMIN",t).run();
 }
 async function context(request, env) {
