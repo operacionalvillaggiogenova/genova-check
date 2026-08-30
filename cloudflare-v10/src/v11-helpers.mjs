@@ -87,7 +87,10 @@ export function activityEvidenceView(row, readUrl) {
 export async function sha256(value) {
   return hex(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
 }
-export async function hashPassword(password, iterations = 210000) {
+// Cloudflare Workers currently accepts PBKDF2 iteration counts up to 100,000.
+// Keep the encoded count in the hash so password verification remains explicit.
+export const PBKDF2_ITERATIONS = 100000;
+export async function hashPassword(password, iterations = PBKDF2_ITERATIONS) {
   if (typeof password !== "string" || password.length < 8) throw new Error("A senha deve ter ao menos 8 caracteres.");
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
@@ -97,6 +100,7 @@ export async function hashPassword(password, iterations = 210000) {
 export async function verifyPassword(password, stored) {
   const [kind, iterations, salt, expected] = String(stored).split("$");
   if (kind !== "pbkdf2-sha256" || !/^\d+$/.test(iterations) || !/^[a-f0-9]+$/i.test(salt) || !/^[a-f0-9]{64}$/i.test(expected)) return false;
+  if (Number(iterations) > PBKDF2_ITERATIONS) return false;
   const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name:"PBKDF2", hash:"SHA-256", salt:unhex(salt), iterations:Number(iterations) }, key, 256);
   const actual = hex(bits); let diff = actual.length ^ expected.length;

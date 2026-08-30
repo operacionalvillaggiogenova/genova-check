@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { activityEvidenceView, activityHistoryView, effectivePermissions, fileOwnerPermission, hasPermission, hashPassword, MAX_ACTIVITY_EVIDENCE_BYTES, permissionKey, routePermission, sessionIsUsable, sha256, staticModulePermission, validActivityEvidence, validPassword, verifyPassword, v11PagePermission, v11PagePermissions, v11Redirect } from "../src/v11-helpers.mjs";
+import { activityEvidenceView, activityHistoryView, effectivePermissions, fileOwnerPermission, hasPermission, hashPassword, MAX_ACTIVITY_EVIDENCE_BYTES, PBKDF2_ITERATIONS, permissionKey, routePermission, sessionIsUsable, sha256, staticModulePermission, validActivityEvidence, validPassword, verifyPassword, v11PagePermission, v11PagePermissions, v11Redirect } from "../src/v11-helpers.mjs";
 import { canonicalOfflinePath, documentsForPermissions } from "../src/v11-offline-helpers.mjs";
 
 test("permission keys and user overrides are deterministic", () => {
@@ -109,8 +109,10 @@ test("legacy tool links resolve to canonical offline cache keys", () => {
 });
 test("Web Crypto PBKDF2 and SHA-256 verify correctly", async () => {
   const stored = await hashPassword("uma-senha-segura");
+  assert.match(stored, new RegExp(`^pbkdf2-sha256\\$${PBKDF2_ITERATIONS}\\$`));
   assert.equal(await verifyPassword("uma-senha-segura", stored), true);
   assert.equal(await verifyPassword("incorreta", stored), false);
+  assert.equal(await verifyPassword("uma-senha-segura", stored.replace(String(PBKDF2_ITERATIONS), "100001")), false);
   assert.equal(await sha256("blexo"), "631bdb905eb777578eb99f7c46f087f043b1b45bc8de3fec5943ebfb0bcfc326");
 });
 test("history and evidence serializers expose only UI-safe camelCase fields", () => {
