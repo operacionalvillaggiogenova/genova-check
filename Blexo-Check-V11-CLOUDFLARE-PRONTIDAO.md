@@ -8,6 +8,8 @@
   qualquer estado local de D1/R2.
 - A estrutura entregue contém um único Worker, assets estáticos, migrations D1
   e o binding R2 configurados em `cloudflare-v10/wrangler.jsonc`.
+- O `package.json` na raiz do pacote permite ao Cloudflare executar
+  diretamente `npm run deploy`, sem configurar um diretório-raiz alternativo.
 
 ## Compatibilidade verificada por inspeção e testes locais
 

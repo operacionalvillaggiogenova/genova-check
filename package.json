@@ -1,0 +1,11 @@
+{
+  "name": "genova-check-cloudflare",
+  "private": true,
+  "version": "11.0.0",
+  "scripts": {
+    "deploy": "wrangler d1 migrations apply blexo-suite --remote --config cloudflare-v10/wrangler.jsonc && wrangler deploy --config cloudflare-v10/wrangler.jsonc"
+  },
+  "devDependencies": {
+    "wrangler": "^4.35.0"
+  }
+}
