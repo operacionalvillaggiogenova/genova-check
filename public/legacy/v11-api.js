@@ -76,6 +76,7 @@ const api = {
   recurrences: {
     list: () => api.req('/api/activity-templates'),
     create: (data) => api.req('/api/activity-templates', { method: 'POST', body: data }),
+    update: (id, data) => api.req(`/api/activity-templates/${id}`, { method: 'PATCH', body: data }),
     setStatus: (id, active) => api.req(`/api/activity-templates/${id}/status`, { method: 'PATCH', body: { active } })
   },
   
@@ -85,7 +86,7 @@ const api = {
       if (status) q.set('status', status);
       if (search) q.set('search', search);
       if (overdue) q.set('overdue', 'true');
-      return api.req(`/api/activities?${q.toString()}`);
+      return api.req(`/api/activities?${q.toString()}`).then(data => Array.isArray(data) ? data : (data.items || []));
     },
     get: (id) => api.req(`/api/activities/${id}`),
     create: (data) => api.req('/api/activities', { method: 'POST', body: data }),

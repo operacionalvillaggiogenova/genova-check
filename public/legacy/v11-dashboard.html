@@ -24,7 +24,7 @@
     <div id="metrics" class="metrics-grid"></div>
     
     <div class="flex justify-between items-center mb-4">
-      <h2 class="section-title" style="margin: 0;">Atividades Recentes</h2>
+      <h2 class="section-title" style="margin: 0;">Atividades de trabalho</h2>
       <a href="/activities" class="btn btn-secondary" style="padding: 6px 12px; min-height: unset; font-size: 13px;">Ver Todas</a>
     </div>
     <div id="recent-activities" class="mb-4">
@@ -60,7 +60,7 @@
         `).join('');
         
         const actsHtml = recentActivities.length === 0 
-          ? `<div class="card text-muted text-sm" style="text-align: center;">Nenhuma atividade recente.</div>`
+          ? `<div class="card text-muted text-sm" style="text-align: center;">Nenhuma atividade pendente ou em andamento.</div>`
           : recentActivities.map(a => `
             <a href="/activity?id=${a.id}" class="card" style="display: block; text-decoration: none; color: inherit; padding: 12px 16px; margin-bottom: 8px;">
               <div class="flex justify-between items-center mb-2">
