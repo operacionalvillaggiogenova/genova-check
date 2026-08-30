@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123047">
+<meta name="description" content="Blexo — Administração">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="adm.css">
+<link rel="icon" type="image/png" href="favicon.png">
+<title>Blexo — Administração</title>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/dashboard" aria-label="Voltar ao painel Blexo"><span class="brand-mark">✓</span><span>Blexo-<strong>Administração</strong></span></a>
+  <div class="top-actions"><span id="onlineStatus" class="online-status">● Online</span></div>
+</header>
+
+<main class="adm-home">
+  <section class="hero compact-hero">
+    <p class="eyebrow">GESTÃO ADMINISTRATIVA</p>
+    <h1>Administração</h1>
+    <p>Acesso rápido aos módulos administrativos do condomínio.</p>
+  </section>
+
+  <section class="admin-grid-home" aria-label="Módulos administrativos">
+    <a class="admin-module" href="/adm-rateio.html">
+      <span class="module-icon">₿</span>
+      <div><h2>Adm-Rateio</h2><p>Água e gás, leituras, contas, cálculo, conferência, evidências e fechamento dos ciclos.</p></div>
+      <span class="arrow">→</span>
+    </a>
+
+    <a class="admin-module" href="/adm-ronda.html">
+      <span class="module-icon">◉</span>
+      <div><h2>Adm-Ronda</h2><p>Consulte as rondas realizadas, blocos fiscalizados, horários, vigilantes, ocorrências e evidências.</p></div>
+      <span class="arrow">→</span>
+    </a>
+
+    <a class="admin-module" href="/adm-fiscalizacao.html">
+      <span class="module-icon">⚖</span>
+      <div><h2>Adm-Fiscalização</h2><p>Consulte fiscalizações, blocos e unidades, irregularidades, horários, fiscais e evidências.</p></div>
+      <span class="arrow">→</span>
+    </a>
+
+    <a class="admin-module" href="/adm-diario.html">
+      <span class="module-icon">🔧</span>
+      <div><h2>Adm-Diário de Serviços</h2><p>Consulte serviços realizados, colaboradores, locais, horários, materiais, observações e evidências.</p></div>
+      <span class="arrow">→</span>
+    </a>
+  </section>
+
+  <section class="card admin-note">
+    <strong>Central administrativa</strong>
+    <p>Esta página reúne os acessos administrativos. Cada módulo apresenta os dados disponíveis para consulta e acompanhamento do condomínio.</p>
+  </section>
+</main>
+
+<script>
+const s=document.getElementById('onlineStatus');
+const f=()=>{const on=navigator.onLine;s.textContent=on?'● Online':'● Offline';s.classList.toggle('offline',!on)};
+addEventListener('online',f);addEventListener('offline',f);f();
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123047"><link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="rateios.css"><title>Blexo — Rateios</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head><body>
+<header class="topbar"><a class="brand" href="/dashboard" aria-label="Voltar ao painel Blexo"><span class="brand-mark">₿</span><span>Blexo-<strong>Rateios</strong></span></a><div class="top-actions"><span id="offlineStatus" class="online-status">● Online</span></div></header>
+<main>
+<section class="hero compact-hero"><p class="eyebrow">RATEIOS E TAXAS</p><h1>Rateios</h1><p>Registre lançamentos, calcule valores somente no relatório final e anexe documentos digitalizados.</p></section>
+<section class="card form-card draft-card">
+<div class="section-title"><span class="step">1</span><h2>Tipo de rateio e rascunho</h2></div>
+<div class="rateio-switch three"><button class="rateio-type active" data-type="tags">🏷️ Tags</button><button class="rateio-type" data-type="mudancas">🚚 Mudanças</button><button class="rateio-type" data-type="ressarcimentos">↩️ Ressarcimentos</button></div>
+<label>Título do relatório<input id="reportTitle" value="Rateio Tags"></label><label>Data do relatório<input id="reportDate" type="date"></label>
+<div class="draft-actions"><button id="saveDraftButton" class="secondary-button" type="button">💾 Salvar rascunho</button><button id="newDraftButton" class="secondary-button" type="button">＋ Novo rascunho</button><button id="viewDraftsButton" class="text-button" type="button">Ver relatórios</button></div>
+<p class="hint">Cada tipo possui seus próprios rascunhos. Os lançamentos e documentos digitalizados ficam salvos neste aparelho.</p>
+</section>
+<section class="card form-card" id="tagsForm"><div class="section-title"><span class="step">2</span><h2>Lançamentos de Tags</h2></div>
+<div class="launch-row"><label>Bloco<input id="tagBlock" inputmode="numeric"></label><label>Apartamento<input id="tagApartment" inputmode="numeric"></label><label>Tipo<select id="tagType"><option value="pedestre">Pedestre</option><option value="veiculo">Veículo</option></select></label><label>Quantidade<input id="tagQty" type="number" min="1" value="1"></label></div><button id="addTag" class="secondary-button" type="button">＋ Adicionar lançamento</button><div id="tagsTable" class="table-wrap"></div></section>
+<section class="card form-card" id="changesForm" hidden><div class="section-title"><span class="step">2</span><h2>Lançamentos de Mudança</h2></div>
+<div class="launch-row"><label>Bloco<input id="changeBlock" inputmode="numeric"></label><label>Apartamento<input id="changeApartment" inputmode="numeric"></label><label>Data da mudança<input id="changeDate" type="date"></label><label>Tipo<select id="changeType"><option value="entrada">Entrada</option><option value="saida">Saída</option></select></label></div><button id="addChange" class="secondary-button" type="button">＋ Adicionar lançamento</button><div id="changesTable" class="table-wrap"></div></section>
+<section class="card form-card" id="refundForm" hidden><div class="section-title"><span class="step">2</span><h2>Ressarcimentos</h2></div>
+<p class="hint">Informe a unidade, a data da ocorrência e relacione os itens configurados antes de adicionar o lançamento.</p>
+<div class="launch-row refund-main"><label>Bloco<input id="refundBlock" inputmode="numeric"></label><label>Apartamento<input id="refundApartment" inputmode="numeric"></label><label>Data da ocorrência<input id="refundDate" type="date"></label></div>
+<div class="refund-item-row"><label>Item<select id="refundItemType"></select></label><label>Quantidade<input id="refundItemQty" type="number" min="1" value="1"></label><label>Valor unitário<input id="refundItemValue" type="text" readonly></label><button id="addRefundItem" class="secondary-button" type="button">＋ Incluir item</button></div>
+<div id="refundItemsTable" class="table-wrap"></div><button id="addRefund" class="secondary-button" type="button">＋ Adicionar ressarcimento</button><div id="refundsTable" class="table-wrap"></div></section>
+<section class="card scanner-attach"><div class="section-title"><span class="step">3</span><h2 id="evidenceTitle">Documentos digitalizados</h2><span id="scanCount" class="count">0 documentos</span></div><p id="evidenceHint" class="hint">Fotografe ou selecione os formulários. Eles serão exibidos abaixo da tabela no PDF final.</p>
+ <div class="processing-panel rateio-processing"><div class="processing-title"><strong>Tratamento da imagem</strong><span>Processamento local</span></div><div class="processing-options" role="radiogroup" aria-label="Tratamento da imagem"><label><input type="radio" name="rateioScanMode" value="color" checked> Colorido</label><label><input type="radio" name="rateioScanMode" value="gray"> Tons de cinza</label><label><input type="radio" name="rateioScanMode" value="document"> Documento</label></div><label class="range-label">Limpeza <input id="rateioCleanLevel" type="range" min="0" max="100" value="55"><span id="rateioCleanValue">55%</span></label><p class="hint compact-hint">Use “Tons de cinza” para formulários e “Documento” para remover sombras. A escolha vale para os próximos documentos.</p></div>
+<div class="capture-actions"><label class="capture-button primary file-button">⌾ Fotografar documento<input id="cameraInput" class="file-picker" type="file" accept="image/*" capture="environment" multiple></label><label class="capture-button file-button">▧ Escolher imagens<input id="galleryInput" class="file-picker" type="file" accept="image/*" multiple></label></div><div id="scansList" class="scans-list"></div></section>
+<button id="generateButton" class="generate" type="button">Gerar e baixar PDF <span>→</span></button><p id="feedback" class="feedback"></p>
+<dialog id="draftsDialog"><div class="dialog-shell"><div class="dialog-title"><h2>Meus relatórios</h2><button class="icon-button" id="closeDraftsButton" aria-label="Fechar">×</button></div><p class="dialog-hint">Cada registro mostra o tipo, o nome e a data do relatório. Os dados ficam apenas neste aparelho.</p><div id="draftsList" class="saved-records-list"></div></div></dialog></main><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="config.js?v=22"></script><script src="offline-pdf.js?v=2"></script><script src="rateios.js?v=9"></script></body></html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#123047">
+  <meta name="description" content="Digitalização de documentos A4 em PDF.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="scanner.css">
+  <title>Blexo — Scanner</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand scanner-brand" href="/dashboard" aria-label="Voltar ao painel Blexo"><span class="brand-mark">✓</span><span>Blexo-<strong>Scanner</strong></span></a>
+    <div class="top-actions"><span id="offlineStatus" class="online-status">● Online</span></div>
+  </header>
+
+  <main>
+    <section class="hero compact-hero">
+      <p class="eyebrow">DIGITALIZAÇÃO DE DOCUMENTOS</p>
+      <h1 id="documentHeading">Novo documento</h1>
+      <p>Fotografe páginas A4, corrija a perspectiva e gere um PDF limpo, com identificação e cabeçalho.</p>
+    </section>
+
+    <section class="card form-card">
+      <div class="section-title"><span class="step">1</span><h2>Identificação</h2></div>
+      <label>Nome do documento<input id="documentName" placeholder="Ex.: Prestação de contas — agosto/2026"></label>
+      <label>Condomínio / empresa<input id="company" placeholder="Ex.: Villaggio Genova"></label>
+      <label>Apresentação / referência<input id="reference" placeholder="Ex.: Notas fiscais, contratos e comprovantes"></label>
+    </section>
+
+    <section class="card scanner-card">
+      <div class="section-title"><span class="step">2</span><h2>Páginas do documento</h2><span id="pageCount" class="count">0 páginas</span></div>
+      <p class="hint">A câmera traseira é priorizada no celular. Após fotografar, ajuste os quatro cantos da folha e o sistema corrige a perspectiva antes de salvar a página.</p>
+      <div class="capture-actions scanner-actions">
+        <label class="capture-button primary file-button">⌾ Fotografar página
+          <input id="cameraInput" class="file-picker" type="file" accept="image/*" capture="environment">
+        </label>
+        <label class="capture-button file-button">▧ Escolher fotos
+          <input id="galleryInput" class="file-picker" type="file" accept="image/*" multiple>
+        </label>
+      </div>
+      <div class="processing-panel">
+        <div class="processing-title"><strong>Tratamento da imagem</strong><span id="opencvStatus">Processamento local pronto</span></div>
+        <div class="processing-options" role="radiogroup" aria-label="Tratamento da imagem">
+          <label><input type="radio" name="scanMode" value="original"> Original</label>
+          <label><input type="radio" name="scanMode" value="gray" checked> Tons de cinza</label>
+          <label><input type="radio" name="scanMode" value="document"> Documento</label>
+        </div>
+        <label class="range-label">Limpeza <input id="cleanLevel" type="range" min="0" max="100" value="55"><span id="cleanValue">55%</span></label>
+        <p class="hint compact-hint">“Documento” remove sombras e pequenas sujeiras com mais força. Para carimbos, assinaturas ou escrita fraca, prefira “Tons de cinza”.</p>
+      </div>
+      <div id="pagesList" class="document-pages" aria-live="polite"></div>
+    </section>
+
+    <section class="card form-card">
+      <div class="section-title"><span class="step">3</span><h2>Apresentação do relatório</h2></div>
+      <label>Responsável<input id="responsible" placeholder="Seu nome"></label>
+      <label>Observações finais<textarea id="notes" rows="3" placeholder="Informações adicionais sobre o conjunto de documentos"></textarea></label>
+    </section>
+
+    <div class="pdf-actions">
+      <button id="generateButton" class="generate" disabled>Gerar PDF <span>→</span></button>
+      <button id="savePdfButton" class="save-pdf" type="button" disabled>💾 Salvar PDF</button>
+      <button id="sharePdfButton" class="share-pdf" type="button" disabled>📤 Enviar por e-mail / compartilhar</button>
+    </div>
+    <p id="feedback" class="feedback" role="status"></p>
+  </main>
+
+  
+  <div id="scanReview" class="scan-review" hidden role="dialog" aria-modal="true" aria-labelledby="scanReviewTitle">
+    <div class="scan-review-shell">
+      <div class="review-head"><h2 id="scanReviewTitle">Ajustar página A4</h2><button id="closeReview" class="review-close" type="button" aria-label="Fechar">×</button></div>
+      <p class="review-hint">A página será mantida em A4 e a orientação será definida pela folha fotografada. Arraste os quatro pontos para os cantos exatos.</p>
+      <div id="reviewCanvasWrap" class="review-canvas-wrap"><canvas id="reviewCanvas" class="review-canvas"></canvas></div>
+      <p id="reviewStatus" class="review-status"></p>
+      <div class="review-actions"><button id="cancelScan" class="review-cancel" type="button">Cancelar</button><button id="confirmScan" class="review-confirm" type="button">Corrigir e adicionar</button></div>
+    </div>
+  </div>
+  <script src="config.js"></script><script src="scanner.js?v=22" defer></script>
+</body>
+</html>

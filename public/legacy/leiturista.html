@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#123047"><meta name="description" content="Relatórios fotográficos de campo, mesmo sem internet.">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="observation-size.css"><link rel="stylesheet" href="seals.css"><title>Blexo — Leiturista</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/dashboard" aria-label="Voltar ao painel Blexo"><span class="brand-mark">✓</span><span>Blexo-<strong>Leiturista</strong></span></a><div class="top-actions"><span id="offlineStatus" class="online-status">● Online</span><a class="icon-button tool-link" href="/dashboard" aria-label="Voltar ao painel Blexo">⌂</a><a class="icon-button tool-link" href="/scanner.html" aria-label="Abrir Scanner">▣</a><button class="icon-button" id="settingsButton" aria-label="Abrir configurações">⚙</button></div></header>
+  <main>
+    <section class="hero compact-hero"><p class="eyebrow">Leiturista</p><h1 id="reportHeading">Novo relatório</h1><p>Salvo somente neste aparelho. Funciona no campo, mesmo offline.</p></section>
+    <section class="card report-name-card"><label>Nome do relatório<input id="reportName" placeholder="Ex.: Leitura mensal — agosto/2026"></label><div class="report-actions"><button class="secondary-button" id="newReportButton">＋ Novo relatório</button><button class="text-button" id="reportsButtonInline">Ver relatórios</button></div></section>
+    <section class="card form-card" aria-labelledby="serviceTitle"><div class="section-title"><span class="step">1</span><h2 id="serviceTitle">Dados da coleta</h2></div><label>Condomínio<input id="client" placeholder="Ex.: Villaggio Genova"></label><label>Competência<input id="reference" type="month" value=""></label><label>Data da coleta<input id="reportDate" type="date"></label><label>Local / referência<input id="location" placeholder="Ex.: Santa Quitéria — Curitiba"></label><label>Observação da coleta<textarea id="service" rows="3" placeholder="Ex.: Leitura mensal de gás e água"></textarea></label></section>
+    <section class="card capture-card" aria-labelledby="photosTitle"><div class="section-title"><span class="step">2</span><h2 id="photosTitle">Evidências fotográficas</h2><span id="photoCount" class="count">0 fotos</span></div><p class="hint">Registre a leitura de gás e água e, se necessário, fotografe o relógio de cada bloco. São 26 blocos e 3 áreas comuns.</p><div id="evidenceBlocks" aria-live="polite"></div></section>
+    <section class="card form-card" aria-labelledby="notesTitle"><div class="section-title"><span class="step">3</span><h2 id="notesTitle">Observações</h2></div><label>Responsável técnico<input id="technician" placeholder="Seu nome"></label><label>Observações finais<textarea id="notes" rows="3" placeholder="Materiais utilizados, pendências ou recomendações"></textarea></label></section>
+    <div class="cloud-actions"><button id="generateButton" class="generate" type="button" disabled>Gerar e baixar PDF <span>→</span></button><button id="sendCloudButton" class="generate cloud-button" type="button">☁ Enviar leituras e evidências ao banco</button></div><p id="feedback" class="feedback" role="status"></p>
+  </main>
+  <dialog id="reportsDialog"><div class="dialog-shell"><div class="dialog-title"><h2>Meus relatórios</h2><button class="icon-button" data-close="reportsDialog" aria-label="Fechar">×</button></div><p class="dialog-hint">Os relatórios ficam apenas neste aparelho.</p><div id="reportsList"></div></div></dialog>
+  <dialog id="settingsDialog"><form method="dialog" class="settings"><div class="dialog-title"><h2>Configurações</h2><button class="icon-button" value="cancel" aria-label="Fechar">×</button></div><label class="switch-row"><span><strong>Marca-d’água</strong><small>Usa EXIF da galeria ou data do sistema na câmera</small></span><input id="watermark" type="checkbox" checked></label><label>Modelo das fotos<select id="photoTemplate"><option value="two">2 por linha (detalhado)</option><option value="one">1 por linha (grande)</option><option value="four">4 por página (compacto)</option></select></label><label>Nome da empresa (opcional)<input id="company" placeholder="Ex.: Sua Empresa Ltda."></label><label>Opções de selo<small class="field-help">Uma por linha: Nome | texto ou bolinha | cor hexadecimal.</small><textarea id="sealConfig" rows="5"></textarea></label><p class="field-help">As cores das faixas são configuradas em <strong>Configurações</strong> no menu principal.</p>
+<button class="save-settings" value="default">Salvar configurações</button></form></dialog>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="config.js"></script><script src="cloud-api.js"></script><script src="app.js?v=49"></script>
+</body>
+</html>

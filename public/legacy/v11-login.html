@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Login - Blexo V11</title>
+  <link rel="stylesheet" href="v11.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--navy); }
+    .login-card { background: var(--white); border-radius: var(--radius); padding: 32px; width: 100%; max-width: 400px; box-shadow: 0 12px 48px rgba(0,0,0,0.3); margin: 16px; }
+    .brand-mark { color: var(--blue); margin-bottom: 24px; display: flex; justify-content: center; }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="brand-mark">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+    </div>
+    <h1 style="text-align: center; margin-bottom: 24px; font-size: 24px; letter-spacing:-0.5px;">Blexo Suite</h1>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Senha</label>
+        <input type="password" id="password" required autocomplete="current-password">
+      </div>
+      <div id="error" class="error-msg mb-4 hidden"></div>
+      <button type="submit" class="btn btn-primary w-full" id="submitBtn">Entrar</button>
+    </form>
+  </div>
+  <script src="v11-api.js"></script>
+  <script src="v11-shell.js"></script>
+  <script>
+    shell.init().then(() => {
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        const err = document.getElementById('error');
+        btn.disabled = true;
+        err.classList.add('hidden');
+        try {
+          await api.auth.login(document.getElementById('email').value, document.getElementById('password').value);
+          window.location.href = '/dashboard';
+        } catch (error) {
+          err.textContent = error.message;
+          err.classList.remove('hidden');
+          btn.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dashboard - Blexo V11</title>
+  <link rel="stylesheet" href="v11.css">
+  <style>
+    .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+    .metric-card { background: var(--white); padding: 16px; border-radius: var(--radius); border: 1px solid var(--line); display: flex; flex-direction: column; }
+    .metric-val { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .metric-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .modules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .module-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; text-decoration: none; color: var(--ink); display: flex; flex-direction: column; transition: box-shadow 0.2s, border-color 0.2s; }
+    .module-card:hover { box-shadow: var(--shadow); border-color: var(--blue); }
+    .module-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .module-desc { font-size: 13px; color: var(--muted); line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="page-title">Painel Geral</h1>
+    
+    <div id="metrics" class="metrics-grid"></div>
+    
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="section-title" style="margin: 0;">Atividades Recentes</h2>
+      <a href="/activities" class="btn btn-secondary" style="padding: 6px 12px; min-height: unset; font-size: 13px;">Ver Todas</a>
+    </div>
+    <div id="recent-activities" class="mb-4">
+      <div class="text-muted text-center text-sm py-4">Carregando...</div>
+    </div>
+    
+    <h2 class="section-title">Módulos de Campo</h2>
+    <div id="modules" class="modules-grid"></div>
+    
+    <div id="admin-section" class="hidden">
+      <h2 class="section-title">Administração</h2>
+      <div class="modules-grid" id="admin-modules">
+        <a href="/users" class="module-card">
+          <div class="module-title">Usuários</div>
+          <div class="module-desc">Gerenciar acessos e perfis da plataforma</div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="v11-api.js"></script>
+  <script src="v11-shell.js"></script>
+  <script>
+    shell.init().then(async () => {
+      try {
+        const { metrics, recentActivities } = await api.dashboard.summary();
+        
+        document.getElementById('metrics').innerHTML = metrics.map(m => `
+          <div class="metric-card">
+            <div class="metric-val" style="color: var(--${m.tone})">${m.value}</div>
+            <div class="metric-label">${shell.escape(m.label)}</div>
+          </div>
+        `).join('');
+        
+        const actsHtml = recentActivities.length === 0 
+          ? `<div class="card text-muted text-sm" style="text-align: center;">Nenhuma atividade recente.</div>`
+          : recentActivities.map(a => `
+            <a href="/activity?id=${a.id}" class="card" style="display: block; text-decoration: none; color: inherit; padding: 12px 16px; margin-bottom: 8px;">
+              <div class="flex justify-between items-center mb-2">
+                <strong style="font-size: 15px;">${shell.escape(a.title)}</strong>
+                <span class="badge badge-${a.status}">${a.status}</span>
+              </div>
+              <div class="text-sm text-muted">Atualizada em ${shell.formatDate(a.updatedAt)}</div>
+            </a>
+          `).join('');
+        document.getElementById('recent-activities').innerHTML = actsHtml;
+      } catch (e) {
+        document.getElementById('metrics').innerHTML = '';
+        document.getElementById('recent-activities').innerHTML = `<div class="error-msg text-center">Não foi possível carregar o resumo.</div>`;
+      }
+      
+      const availableModules = [];
+      if (shell.has('activities.view')) {
+        availableModules.push({ url: '/activities', title: 'Atividades V11', desc: 'Gestão integrada de tarefas operacionais' });
+        availableModules.push({ url: '/recorrencias', title: 'Recorrências', desc: 'Cadastros programados e suas próximas execuções' });
+      }
+      
+      const legacy = [
+        { perms: ['leiturista.view'], url: '/leiturista.html', title: 'Leiturista', desc: 'Leituras de gás e água por bloco' },
+        { perms: ['ronda.view', 'ronda.admin'], url: '/ronda.html', title: 'Ronda', desc: 'Registro fotográfico dos blocos' },
+        { perms: ['diario.view', 'diario.admin'], url: '/diario.html', title: 'Diário de Serviços', desc: 'Rotina cronológica de manutenção' },
+        { perms: ['fiscalizacao.view', 'fiscalizacao.admin'], url: '/fiscalizacao.html', title: 'Fiscalização', desc: 'Inspeção de unidades e irregularidades' },
+        { perms: ['rateios.view', 'rateios.admin'], url: '/rateios.html', title: 'Rateios', desc: 'Tags e mudanças para cobrança' },
+        { perms: ['orcamentos.view'], url: '/orcamentos.html', title: 'Orçamentos', desc: 'Propostas comerciais e fotos' },
+        { perms: ['reembolso.view'], url: '/reembolso.html', title: 'Reembolso', desc: 'Pedidos com despesas e recibos' },
+        { perms: ['check.view'], url: '/check.html', title: 'Checagem', desc: 'Inspeções e evidências simples' },
+        { perms: ['scanner.view'], url: '/scanner.html', title: 'Scanner', desc: 'Digitalização de documentos' }
+      ];
+      
+      legacy.forEach(m => {
+        if (m.perms.some(p => shell.has(p))) {
+          if (!availableModules.find(x => x.url === m.url)) availableModules.push(m);
+        }
+      });
+      
+      document.getElementById('modules').innerHTML = availableModules.map(m => `
+        <a href="${m.url}" class="module-card">
+          <div class="module-title">${shell.escape(m.title)}</div>
+          <div class="module-desc">${shell.escape(m.desc)}</div>
+        </a>
+      `).join('');
+      
+      if (shell.has('users.view')) {
+        document.getElementById('admin-section').classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
