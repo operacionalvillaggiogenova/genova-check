@@ -1,7 +1,7 @@
 /* V11 authenticated offline wrapper; preserved V10 sw.js is never modified. */
-const PUBLIC_CACHE = "blexo-v11-public-v3";
-const USER_CACHE = "blexo-v11-user-";
-const MARKER_DB = "blexo-v11-session";
+const PUBLIC_CACHE = "blexo-suite-public-v4";
+const USER_CACHE = "blexo-suite-user-";
+const MARKER_DB = "blexo-suite-session";
 const MARKER_STORE = "identity";
 const PUBLIC_ASSETS = ["/v11.css","/v11-api.js","/v11-shell.js","/blexo-config-bridge.js","/v11-module-settings.js","/dashboard.css","/styles.css","/observation-size.css","/photo-notes.css","/seals.css","/adm.css","/adm-rateio.css","/ronda.css","/diario.css","/fiscalizacao.css","/rateios.css","/orcamentos.css","/reembolso.css","/scanner.css","/config.js","/cloud-api.js","/dashboard.js","/app.js","/check-app.js","/offline-pdf.js","/scanner.js","/ronda.js","/diario.js","/fiscalizacao.js","/rateios.js","/orcamentos.js","/reembolso.js","/adm-rateio.js","/favicon.png","/favicon-128.png","/apple-touch-icon.png","/icon-512.png","/icon-192.png","/manifest.webmanifest"];
 const DOCUMENT_PERMISSIONS = {"/dashboard":"dashboard.view","/activities":"activities.view","/activity":"activities.view","/users":"users.view","/settings":"settings.password","/v11-dashboard.html":"dashboard.view","/v11-activities.html":"activities.view","/v11-activity.html":"activities.view","/v11-users.html":"users.view","/v11-settings.html":"settings.password","/check.html":"check.view","/leiturista.html":"leiturista.view","/scanner.html":"scanner.view","/ronda.html":"ronda.view","/adm-ronda.html":"ronda.admin","/diario.html":"diario.view","/adm-diario.html":"diario.admin","/fiscalizacao.html":"fiscalizacao.view","/adm-fiscalizacao.html":"fiscalizacao.admin","/rateios.html":"rateios.view","/adm-rateio.html":"rateios.admin","/orcamentos.html":"orcamentos.view","/reembolso.html":"reembolso.view","/adm.html":"rateios.admin"};

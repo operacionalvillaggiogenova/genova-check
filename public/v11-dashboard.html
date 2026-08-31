@@ -31,16 +31,19 @@
       <div class="text-muted text-center text-sm py-4">Carregando...</div>
     </div>
     
-    <h2 class="section-title">Módulos de Campo</h2>
-    <div id="modules" class="modules-grid"></div>
+    <section id="activity-management-section" class="hidden">
+      <h2 class="section-title">Gerenciar Atividades</h2>
+      <div id="activity-management-modules" class="modules-grid"></div>
+    </section>
+
+    <section id="field-modules-section" class="hidden">
+      <h2 class="section-title">Módulos de Campo</h2>
+      <div id="field-modules" class="modules-grid"></div>
+    </section>
     
     <div id="admin-section" class="hidden">
       <h2 class="section-title">Administração</h2>
       <div class="modules-grid" id="admin-modules">
-        <a href="/users" class="module-card">
-          <div class="module-title">Usuários</div>
-          <div class="module-desc">Gerenciar acessos e perfis da plataforma</div>
-        </a>
       </div>
     </div>
   </div>
@@ -76,10 +79,10 @@
         document.getElementById('recent-activities').innerHTML = `<div class="error-msg text-center">Não foi possível carregar o resumo.</div>`;
       }
       
-      const availableModules = [];
+      const activityManagementModules = [];
       if (shell.has('activities.view')) {
-        availableModules.push({ url: '/activities', title: 'Atividades', desc: 'Gestão integrada de tarefas operacionais' });
-        availableModules.push({ url: '/recorrencias', title: 'Recorrências', desc: 'Cadastros programados e suas próximas execuções' });
+        activityManagementModules.push({ url: '/activities', title: 'Atividades', desc: 'Criar, distribuir e acompanhar atividades de trabalho' });
+        activityManagementModules.push({ url: '/recorrencias', title: 'Recorrências', desc: 'Planejar e administrar atividades programadas' });
       }
       
       const legacy = [
@@ -87,28 +90,40 @@
         { perms: ['ronda.view', 'ronda.admin'], url: '/ronda.html', title: 'Ronda', desc: 'Registro fotográfico dos blocos' },
         { perms: ['diario.view', 'diario.admin'], url: '/diario.html', title: 'Diário de Serviços', desc: 'Rotina cronológica de manutenção' },
         { perms: ['fiscalizacao.view', 'fiscalizacao.admin'], url: '/fiscalizacao.html', title: 'Fiscalização', desc: 'Inspeção de unidades e irregularidades' },
-        { perms: ['rateios.view', 'rateios.admin'], url: '/rateios.html', title: 'Rateios', desc: 'Tags e mudanças para cobrança' },
         { perms: ['orcamentos.view'], url: '/orcamentos.html', title: 'Orçamentos', desc: 'Propostas comerciais e fotos' },
         { perms: ['reembolso.view'], url: '/reembolso.html', title: 'Reembolso', desc: 'Pedidos com despesas e recibos' },
         { perms: ['check.view'], url: '/check.html', title: 'Checagem', desc: 'Inspeções e evidências simples' },
         { perms: ['scanner.view'], url: '/scanner.html', title: 'Scanner', desc: 'Digitalização de documentos' }
       ];
       
-      legacy.forEach(m => {
-        if (m.perms.some(p => shell.has(p))) {
-          if (!availableModules.find(x => x.url === m.url)) availableModules.push(m);
-        }
-      });
-      
-      document.getElementById('modules').innerHTML = availableModules.map(m => `
+      const fieldModules = legacy.filter(m => m.perms.some(p => shell.has(p)));
+      const renderModules = modules => modules.map(m => `
         <a href="${m.url}" class="module-card">
           <div class="module-title">${shell.escape(m.title)}</div>
           <div class="module-desc">${shell.escape(m.desc)}</div>
         </a>
       `).join('');
-      
+
+      if (activityManagementModules.length) {
+        document.getElementById('activity-management-section').classList.remove('hidden');
+        document.getElementById('activity-management-modules').innerHTML = renderModules(activityManagementModules);
+      }
+
+      if (fieldModules.length) {
+        document.getElementById('field-modules-section').classList.remove('hidden');
+        document.getElementById('field-modules').innerHTML = renderModules(fieldModules);
+      }
+
+      const adminModules = [];
       if (shell.has('users.view')) {
+        adminModules.push({ url: '/users', title: 'Usuários e Perfis', desc: 'Gerenciar acessos, equipes e perfis da plataforma' });
+      }
+      if (shell.has('rateios.admin')) {
+        adminModules.push({ url: '/adm-rateio.html', title: 'Adm. Rateios', desc: 'Administrar ciclos, leituras, contas e resultados de rateio' });
+      }
+      if (adminModules.length) {
         document.getElementById('admin-section').classList.remove('hidden');
+        document.getElementById('admin-modules').innerHTML = renderModules(adminModules);
       }
     });
   </script>
