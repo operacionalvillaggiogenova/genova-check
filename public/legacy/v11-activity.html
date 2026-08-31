@@ -108,6 +108,7 @@
           `).join('') : '<div class="text-sm text-muted text-center py-4">Nenhuma evidência anexada.</div>';
         } catch(e){}
       }
+      setupExecutionEvidenceUploader();
       try {
         const hist = await api.activities.history(activityId);
         const c = document.getElementById('history-list');
@@ -118,6 +119,18 @@
           </div>
         `).join('');
       } catch(e){}
+    }
+
+    function setupExecutionEvidenceUploader() {
+      const form=document.getElementById('executionEvidenceForm');
+      if(!form) return;
+      const camera=document.getElementById('executionCamera'), gallery=document.getElementById('executionGallery'), fileName=document.getElementById('executionFileName'), submit=document.getElementById('executionEvidenceSubmit'), error=document.getElementById('executionEvidenceError');
+      let selectedFile=null, source='gallery';
+      const select=(input,nextSource)=>{const file=input.files[0];if(!file)return;selectedFile=file;source=nextSource;fileName.textContent=`${nextSource==='camera'?'Câmera':'Galeria'}: ${file.name}`;submit.disabled=false;error.classList.add('hidden')};
+      document.getElementById('btnExecutionCamera').onclick=()=>camera.click();
+      document.getElementById('btnExecutionGallery').onclick=()=>gallery.click();
+      camera.onchange=()=>select(camera,'camera'); gallery.onchange=()=>select(gallery,'gallery');
+      form.onsubmit=async event=>{event.preventDefault();if(!selectedFile)return;submit.disabled=true;error.classList.add('hidden');try{await api.activities.uploadEvidence(activityId,selectedFile,document.getElementById('executionEvidenceNote').value,source);form.reset();selectedFile=null;fileName.textContent='Nenhuma imagem selecionada.';loadHistoryAndEvidence()}catch(e){error.textContent=e.message;error.classList.remove('hidden')}finally{submit.disabled=!selectedFile}};
     }
 
     async function loadExecutionRecords() {
@@ -175,6 +188,21 @@
 
         ${shell.has('activities.evidence') ? `
         <h2 class="section-title mt-4">Evidências</h2>
+        <div class="card mb-4" style="padding:16px;">
+          <strong style="display:block;margin-bottom:8px;">Adicionar imagem da atividade</strong>
+          <p class="text-muted text-sm" style="margin-top:0;">Disponível durante toda a execução; não é necessário concluir a atividade.</p>
+          <form id="executionEvidenceForm">
+            <input id="executionCamera" type="file" accept="image/*" capture="environment" class="hidden">
+            <input id="executionGallery" type="file" accept="image/*" class="hidden">
+            <div class="flex gap-2" style="flex-wrap:wrap;margin-bottom:10px;">
+              <button type="button" id="btnExecutionCamera" class="btn btn-outline">📷 Câmera</button>
+              <button type="button" id="btnExecutionGallery" class="btn btn-outline">▧ Galeria</button>
+              <span id="executionFileName" class="text-muted text-sm" style="align-self:center;">Nenhuma imagem selecionada.</span>
+            </div>
+            <textarea id="executionEvidenceNote" rows="2" placeholder="Observação da imagem (opcional)"></textarea>
+            <div class="flex justify-between items-center" style="margin-top:10px;"><span id="executionEvidenceError" class="error-msg hidden"></span><button id="executionEvidenceSubmit" class="btn btn-primary" disabled>Enviar imagem</button></div>
+          </form>
+        </div>
         <div class="card" id="evidence-list" style="background:transparent; border:none; padding:0; box-shadow:none; margin-bottom:24px;">Carregando...</div>
         ` : ''}
 
