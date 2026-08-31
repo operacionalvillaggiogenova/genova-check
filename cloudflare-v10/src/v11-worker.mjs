@@ -496,7 +496,6 @@ async function v11(request, env, url, auth) {
       const b=await body(request);
       if(a.status!=="in_progress")return json({error:"Inicie a atividade antes de concluí-la"},409);
       if(a.assigned_to_id&&a.assigned_to_id!==auth.user.id&&!coordinates(auth))return json({error:"Esta atividade está atribuída a outra pessoa"},403);
-      if(a.requires_evidence&&!(await one(env.DB,"SELECT id FROM activity_evidence WHERE activity_id=? LIMIT 1",a.id)))return json({error:"Envie pelo menos uma evidência antes de concluir"},400);
       if(a.requires_observation&&clean(b?.note).length<3)return json({error:"Informe a observação de conclusão"},400);
       const t=now(),result=await env.DB.prepare("UPDATE activities SET status='completed',completed_at=?,completed_by_id=?,updated_at=? WHERE id=? AND status='in_progress'").bind(t,auth.user.id,t,aid).run();
       if(!result.meta?.changes)return json({error:"A atividade já foi alterada"},409);
