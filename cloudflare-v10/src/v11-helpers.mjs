@@ -81,7 +81,8 @@ export function activityEvidenceView(row, readUrl) {
   return {
     id: row.id, activityId: row.activity_id, filename: row.filename,
     contentType: row.content_type, size: row.size, note: row.note,
-    uploadedById: row.uploaded_by_id, createdAt: row.created_at, readUrl
+    uploadedById: row.uploaded_by_id, createdAt: row.created_at,
+    capturedAt: row.captured_at || row.created_at, source: row.source || "upload", readUrl
   };
 }
 export async function sha256(value) {

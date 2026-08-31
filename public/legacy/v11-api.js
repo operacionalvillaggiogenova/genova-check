@@ -73,10 +73,12 @@ const api = {
   permissions: {
     list: () => api.req('/api/permissions')
   },
+  teams: { list: () => api.req('/api/teams'), create: data => api.req('/api/teams',{method:'POST',body:data}), update: (code,data) => api.req(`/api/teams/${code}`,{method:'PATCH',body:data}) },
   recurrences: {
     list: () => api.req('/api/activity-templates'),
     create: (data) => api.req('/api/activity-templates', { method: 'POST', body: data }),
     update: (id, data) => api.req(`/api/activity-templates/${id}`, { method: 'PATCH', body: data }),
+    history: id => api.req(`/api/activity-templates/${id}/history`),
     setStatus: (id, active) => api.req(`/api/activity-templates/${id}/status`, { method: 'PATCH', body: { active } })
   },
   
@@ -96,14 +98,18 @@ const api = {
     cancel: (id) => api.req(`/api/activities/${id}/cancel`, { method: 'POST' }),
     history: (id) => api.req(`/api/activities/${id}/history`),
     evidence: (id) => api.req(`/api/activities/${id}/evidence`),
-    uploadEvidence: (id, file, note) => {
+    uploadEvidence: (id, file, note, source = 'gallery') => {
       const fd = new FormData();
       fd.append('file', file);
       if (note) fd.append('note', note);
+      fd.append('source', source);
+      fd.append('capturedAt', new Date(source === 'camera' ? Date.now() : (file.lastModified || Date.now())).toISOString());
       return api.req(`/api/activities/${id}/evidence`, { method: 'POST', body: fd });
     },
     getEvidenceUrl: (id, evidenceId) => `/api/activities/${id}/evidence/${evidenceId}`
   },
+  activityNotes: { list: activityId => api.req(`/api/activities/${activityId}/notes`), create: (activityId,body) => api.req(`/api/activities/${activityId}/notes`,{method:'POST',body:{body}}) },
+  materials: { list: activityId => api.req(`/api/activities/${activityId}/materials`), create: (activityId,data) => api.req(`/api/activities/${activityId}/materials`,{method:'POST',body:data}) },
   checklists: { list: activityId => api.req(`/api/activities/${activityId}/checklists`), create: (activityId,data) => api.req(`/api/activities/${activityId}/checklists`,{method:'POST',body:data}), setItem: (activityId,checklistId,itemId,checked) => api.req(`/api/activities/${activityId}/checklists/${checklistId}/items/${itemId}`,{method:'PATCH',body:{checked}}) }
 };
 window.api = api;

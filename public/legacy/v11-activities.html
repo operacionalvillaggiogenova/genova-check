@@ -89,6 +89,10 @@
           <label for="cDesc">Descrição</label>
           <textarea id="cDesc" rows="3"></textarea>
         </div>
+        <div class="form-group">
+          <label for="cChecklist">Checklist (um item por linha)</label>
+          <textarea id="cChecklist" rows="3" placeholder="Ex.: Verificar válvula&#10;Registrar leitura"></textarea>
+        </div>
         <div class="form-group flex items-center gap-2" style="background: var(--sky); padding: 12px; border-radius: var(--radius-sm);">
           <input type="checkbox" id="cEvidence" style="width:20px; min-height:unset; margin:0;" checked>
           <label for="cEvidence" style="margin:0; flex:1;">Exigir evidência fotográfica para concluir</label>
@@ -142,6 +146,7 @@
 
     shell.init().then(async () => {
       if (!shell.has('activities.view')) return window.location.href = '/dashboard';
+      try { const teams=await api.teams.list(); document.getElementById('cTeam').innerHTML=teams.filter(t=>t.active).map(t=>`<option value="${shell.escape(t.code)}">${shell.escape(t.label)}</option>`).join(''); } catch(e) {}
       
       document.getElementById('btnCloseCreateTop').addEventListener('click', () => document.getElementById('createModal').close());
       document.getElementById('btnCancelCreate').addEventListener('click', () => document.getElementById('createModal').close());
@@ -192,6 +197,7 @@
             dueDate: dueInput ? new Date(dueInput + 'T12:00:00').toISOString() : null,
             location: document.getElementById('cLocation').value,
             description: document.getElementById('cDesc').value,
+            checklists: document.getElementById('cChecklist').value.trim() ? [{ title: 'Checklist da atividade', items: document.getElementById('cChecklist').value.split('\n') }] : [],
             requiresEvidence: document.getElementById('cEvidence').checked
           });
           document.getElementById('createModal').close();

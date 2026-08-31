@@ -65,6 +65,8 @@
         render();
         loadHistoryAndEvidence();
         loadChecklists();
+        loadExecutionRecords();
+        loadRecurringHistory();
       } catch(e) {
         document.getElementById('content').innerHTML = `
           <div class="mb-4"><a href="/activities" class="btn btn-outline"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Voltar</a></div>
@@ -97,7 +99,7 @@
                 <div>
                   <div class="font-bold text-sm" style="word-break:break-all;">${shell.escape(e.filename)}</div>
                   <div class="text-muted" style="font-size: 11px; margin-top:2px;">
-                    ${shell.formatDate(e.createdAt)} ${e.note ? ' • '+shell.escape(e.note) : ''}
+                    ${shell.formatDate(e.capturedAt || e.createdAt)} • ${e.source === 'camera' ? 'Câmera' : 'Galeria'}${e.note ? ' • '+shell.escape(e.note) : ''}
                   </div>
                 </div>
               </div>
@@ -116,6 +118,23 @@
           </div>
         `).join('');
       } catch(e){}
+    }
+
+    async function loadExecutionRecords() {
+      const canAdd = shell.has('activities.start') || shell.has('activities.update');
+      try {
+        const [notes, materials] = await Promise.all([api.activityNotes.list(activityId), api.materials.list(activityId)]);
+        const notesEl=document.getElementById('notes-list'), materialsEl=document.getElementById('materials-list');
+        if(notesEl) notesEl.innerHTML=(canAdd?`<form id="noteForm" class="mb-4"><textarea id="noteBody" rows="3" placeholder="Adicionar observação sobre a execução..."></textarea><button class="btn btn-outline" style="margin-top:8px">Adicionar observação</button></form>`:'')+(notes.length?notes.map(n=>`<div class="history-item"><div class="history-time">${shell.formatDate(n.createdAt)} • ${shell.escape(n.author.name)}</div><div>${shell.escape(n.body)}</div></div>`).join(''):'<div class="text-muted text-sm">Nenhuma observação registrada.</div>');
+        if(materialsEl) materialsEl.innerHTML=(canAdd?`<form id="materialForm" class="grid grid-cols-2 gap-3 mb-4"><input id="materialName" placeholder="Material" required><input id="materialQuantity" placeholder="Qtd."><input id="materialUnit" placeholder="Unidade"><button class="btn btn-outline">Adicionar material</button></form>`:'')+(materials.length?materials.map(m=>`<div class="history-item"><strong>${shell.escape(m.name)}</strong>${m.quantity?` • ${shell.escape(m.quantity)} ${shell.escape(m.unit||'')}`:''}<div class="history-time">${shell.formatDate(m.createdAt)} • ${shell.escape(m.author.name)}</div></div>`).join(''):'<div class="text-muted text-sm">Nenhum material registrado.</div>');
+        document.getElementById('noteForm')?.addEventListener('submit',async e=>{e.preventDefault();try{await api.activityNotes.create(activityId,document.getElementById('noteBody').value);loadExecutionRecords();loadHistoryAndEvidence()}catch(x){alert(x.message)}});
+        document.getElementById('materialForm')?.addEventListener('submit',async e=>{e.preventDefault();try{await api.materials.create(activityId,{name:document.getElementById('materialName').value,quantity:document.getElementById('materialQuantity').value,unit:document.getElementById('materialUnit').value});loadExecutionRecords();loadHistoryAndEvidence()}catch(x){alert(x.message)}});
+      } catch(e) {}
+    }
+
+    async function loadRecurringHistory() {
+      if (!currentActivity.templateId) return;
+      try { const rows=await api.recurrences.history(currentActivity.templateId), target=document.getElementById('recurrence-history'); if(target) target.innerHTML=rows.map(row=>`<div class="history-item"><div class="history-time">Programada: ${shell.formatDate(row.scheduled_for)}</div><a href="/activity?id=${row.id}">${shell.escape(row.title)}</a> • ${shell.escape(row.status)}${row.completed_at?` • concluída: ${shell.formatDate(row.completed_at)}`:''}</div>`).join('')||'<div class="text-muted text-sm">Ainda não há ocorrências.</div>'; } catch(e) {}
     }
 
     function render() {
@@ -159,11 +178,17 @@
         <div class="card" id="evidence-list" style="background:transparent; border:none; padding:0; box-shadow:none; margin-bottom:24px;">Carregando...</div>
         ` : ''}
 
+        <h2 class="section-title mt-4">Observações da atividade</h2>
+        <div class="card" id="notes-list" style="padding:16px;"></div>
+        <h2 class="section-title mt-4">Materiais utilizados</h2>
+        <div class="card" id="materials-list" style="padding:16px;"></div>
+
         <h2 class="section-title mt-4">Checklist</h2>
         <div id="checklists"></div>
 
         <h2 class="section-title mt-4">Histórico</h2>
         <div class="card" id="history-list" style="padding: 4px 16px;">Carregando...</div>
+        ${a.templateId ? `<h2 class="section-title mt-4">Histórico da recorrência</h2><div class="card" id="recurrence-history" style="padding: 4px 16px;">Carregando...</div>` : ''}
       `;
 
       const actionBar = document.querySelector('.action-bar');
@@ -212,7 +237,7 @@
           const note = document.getElementById('evNote').value;
           
           if (reqEv && file) {
-            await api.activities.uploadEvidence(activityId, file, note);
+            await api.activities.uploadEvidence(activityId, file, note, 'camera');
           } else if (reqEv && !file) {
             throw new Error("Você precisa anexar um arquivo/foto para concluir esta atividade.");
           }
