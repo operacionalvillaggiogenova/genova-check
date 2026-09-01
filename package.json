@@ -1,9 +1,17 @@
 {
-  "name": "genova-check-cloudflare",
+  "name": "blexo-suite",
   "private": true,
+  "type": "module",
   "version": "11.0.0",
+  "description": "Blexo-Suite - operação, atividades e ferramentas de campo em Cloudflare Workers, D1 e R2",
   "scripts": {
-    "deploy": "wrangler d1 migrations apply blexo-suite --remote --config cloudflare-v10/wrangler.jsonc && wrangler deploy --config cloudflare-v10/wrangler.jsonc"
+    "dev": "wrangler dev --local",
+    "migrate:local": "wrangler d1 migrations apply blexo-suite --local",
+    "migrate:remote": "wrangler d1 migrations apply blexo-suite --remote",
+    "deploy": "wrangler deploy",
+    "typecheck": "wrangler types",
+    "check": "node --check src/index.js",
+    "test": "node --test"
   },
   "devDependencies": {
     "wrangler": "^4.35.0"

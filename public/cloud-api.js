@@ -20,7 +20,7 @@
       }
       return request('/leiturista/sync',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
         sourceReportId:report.id,name:report.name,client:report.client,location:report.location,service:report.service,
-        technician:report.technician,notes:report.notes,reportDate:report.reportDate||new Date().toISOString().slice(0,10),
+        technician:report.technician,notes:report.notes,activityId:report.activityId||null,reportDate:report.reportDate||new Date().toISOString().slice(0,10),
         reference:report.reference||report.reportDate?.slice(0,7)||new Date().toISOString().slice(0,7),readings
       })});
     },

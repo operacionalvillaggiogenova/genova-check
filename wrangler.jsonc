@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "genova-check",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-27",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "blexo-suite",
+      "database_id": "8bdb42e8-0a0b-4b13-a416-de3ff283be25",
+      "migrations_dir": "src/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "blexo-check-evidence"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  }
+}

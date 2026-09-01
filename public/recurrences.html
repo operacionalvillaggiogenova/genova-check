@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#123047"><link rel="icon" href="favicon.png"><link rel="stylesheet" href="v11.css"><title>Recorrências — blexo-suite</title></head>
+<body>
+<header class="app-topbar"><a class="app-brand" href="/"><span class="brand-mark">←</span><span>Recorrências</span></a></header>
+<main class="app-main"><section class="page-heading"><div><p class="eyebrow">PLANEJAMENTO</p><h1>Recorrências</h1><p>Modelos que geram atividades independentes sem alterar ocorrências anteriores.</p></div><button id="newButton" class="primary-action">Nova recorrência</button></section><section class="section-card"><div id="recurrenceList" class="activity-list"><p class="empty-state">Carregando…</p></div></section></main>
+<dialog id="createDialog" class="app-dialog"><form id="createForm" class="dialog-shell"><div class="dialog-heading"><div><h2>Nova recorrência</h2><p>A primeira execução define o horário das próximas ocorrências.</p></div><button type="button" data-close="createDialog" class="icon-close">×</button></div><div class="form-grid">
+<label class="full">Título<input id="title" required maxlength="180"></label><label class="full">Descrição<textarea id="description" rows="3"></textarea></label>
+<label>Equipe<select id="team" required></select></label><label>Responsável<select id="assignee"><option value="">Equipe</option></select></label>
+<label>Periodicidade<select id="kind"><option value="DAILY">Diária</option><option value="WEEKLY">Semanal</option><option value="MONTHLY">Mensal</option></select></label><label>Intervalo<input id="interval" type="number" min="1" max="365" value="1"></label>
+<label>Primeira execução<input id="firstRun" type="datetime-local" required></label><label>Prioridade<select id="priority"><option value="NORMAL">Normal</option><option value="LOW">Baixa</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label>
+<label class="full">Local<input id="location"></label><label>Ferramenta<select id="tool"><option value="">Nenhuma</option></select></label><label class="check-row"><input id="evidence" type="checkbox"> Exigir evidência</label><label class="check-row"><input id="note" type="checkbox"> Exigir observação</label>
+</div><p id="feedback" class="feedback"></p><div class="dialog-actions"><button type="button" class="secondary-action" data-close="createDialog">Cancelar</button><button id="submitButton" class="primary-action">Salvar recorrência</button></div></form></dialog>
+<script src="auth-client.js"></script><script src="recurrences.js"></script>
+</body></html>
+

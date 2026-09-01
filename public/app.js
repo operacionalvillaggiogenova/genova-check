@@ -2,6 +2,7 @@ const $ = id => document.getElementById(id);
 const photoTemplateSelect = $('photoTemplate');
 if (photoTemplateSelect && !photoTemplateSelect.querySelector('[value="six"]')) photoTemplateSelect.insertAdjacentHTML('beforeend', '<option value="six">6 por página (compacto)</option>');
 const DB_NAME = 'blexo-check-medicoes', STORE = 'reports';
+const LINKED_ACTIVITY_ID = new URLSearchParams(location.search).get('activity') || null;
 const DEFAULT_SEAL_CONFIG = 'Antes|texto|#123047\nDepois|texto|#176d9a\nVerde|bolinha|#36a269\nAmarelo|bolinha|#e5b22e\nVermelho|bolinha|#cb4c4c';
 let currentReport, saveTimer;
 const newId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -10,7 +11,7 @@ function METER_BLOCKS(){return meterTitles();}
 const newBlock = (title = '') => ({ id: newId(), title, photos: [], gas: '', water: '' });
 const newMeterGroups = () => meterTitles().map(title => newBlock(title));
 const defaultSettings = () => { const c=typeof blexoConfig==='function'?blexoConfig():{}; return { watermark:c.watermark!==false, template:c.checkPhotoTemplate||c.photoTemplate||'two', company:'', sealConfig:c.sealConfig||DEFAULT_SEAL_CONFIG }; };
-const blankReport = () => ({ id: newId(), name: 'Novo relatório', reportDate: new Date().toISOString().slice(0,10), reference: new Date().toISOString().slice(0,7), client: '', location: '', service: '', technician: '', notes: '', settings: defaultSettings(), groups: newMeterGroups(), updatedAt: new Date().toISOString() });
+const blankReport = () => ({ id: newId(), activityId: LINKED_ACTIVITY_ID, name: 'Novo relatório', reportDate: new Date().toISOString().slice(0,10), reference: new Date().toISOString().slice(0,7), client: '', location: '', service: '', technician: '', notes: '', settings: defaultSettings(), groups: newMeterGroups(), updatedAt: new Date().toISOString() });
 
 function openDatabase() { return new Promise((resolve, reject) => { const request = indexedDB.open(DB_NAME, 1); request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: 'id' }); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); }
 async function withStore(mode, work) { const db = await openDatabase(); return new Promise((resolve, reject) => { const transaction = db.transaction(STORE, mode), result = work(transaction.objectStore(STORE)); transaction.oncomplete = () => { db.close(); resolve(result); }; transaction.onerror = () => { db.close(); reject(transaction.error); }; }); }
@@ -392,5 +393,5 @@ function generatePdf() {
 $('newReportButton').onclick = async () => { await saveNow(); currentReport = blankReport(); await saveNow(); renderReport(); $('feedback').textContent = 'Novo relatório criado neste aparelho.'; };
 $('reportsButtonInline').onclick = openReports; if($('sendCloudButton')) $('sendCloudButton').onclick = async()=>{ const b=$('sendCloudButton'); b.disabled=true; try{ if(window.__blexoLastPdfReportId!==currentReport.id || !(window.__blexoLastPdfBlob instanceof Blob)) await generatePdf(); await sendToCloud(); }catch(e){ console.error('Blexo Cloud:',e); $('feedback').textContent='Falha no envio: '+(e?.message||'erro desconhecido'); }finally{ b.disabled=false; } };  $('settingsButton').onclick = () => { renderModuleColors(); $('settingsDialog').showModal(); }; document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => $(button.dataset.close).close()); $('settingsDialog').addEventListener('close', () => { if ($('settingsDialog').returnValue !== 'cancel') { saveModuleColors(); syncFields(); renderBlocks(); scheduleSave(); } }); $('generateButton').onclick = generatePdf;
 window.addEventListener('online', setOnlineStatus); window.addEventListener('offline', setOnlineStatus);
-(async () => { const reports = await getAllReports(); currentReport = ensureReportShape(reports.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0] || blankReport()); if (!reports.length) await saveReport(currentReport); renderReport(); setOnlineStatus(); })();
+(async () => { const reports = await getAllReports(); currentReport = ensureReportShape(reports.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0] || blankReport()); if(LINKED_ACTIVITY_ID) currentReport.activityId=LINKED_ACTIVITY_ID; if (!reports.length || LINKED_ACTIVITY_ID) await saveReport(currentReport); renderReport(); setOnlineStatus(); })();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

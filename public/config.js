@@ -6,6 +6,11 @@
 // Ao alterar esta versão, todas as configurações
 // locais antigas serão substituídas pelos padrões
 // definidos abaixo.
+// Versão do produto exibida apenas na área de informações das configurações.
+const BLEXO_PRODUCT_VERSION = '11.0.0';
+
+// Versão do formato das preferências locais. Ela permanece independente da
+// versão do produto para evitar apagar configurações existentes sem necessidade.
 const BLEXO_APP_VERSION = '51.0';
 
 // Chave que registra qual versão já foi aplicada

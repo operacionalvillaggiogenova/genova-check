@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#123047">
+  <link rel="icon" type="image/png" href="favicon.png"><link rel="stylesheet" href="v11.css"><title>Atividades — blexo-suite</title>
+</head>
+<body>
+  <header class="app-topbar"><a class="app-brand" href="/"><span class="brand-mark">←</span><span>Atividades</span></a><div class="topbar-actions"><span id="syncStatus" class="sync-status">Verificando…</span></div></header>
+  <main class="app-main">
+    <section class="page-heading"><div><p class="eyebrow">OPERAÇÃO</p><h1>Atividades</h1><p id="scopeText">Demandas disponíveis para seu acesso.</p></div><button id="newButton" class="primary-action" type="button" hidden>Nova atividade</button></section>
+    <section class="section-card">
+      <div class="filter-row"><button data-filter="active" class="active">Ativas</button><button data-filter="overdue">Atrasadas</button><button data-filter="today">Hoje</button><button data-filter="completed">Concluídas</button><button data-filter="all">Todas</button></div>
+      <div id="activityList" class="activity-list"><p class="empty-state">Carregando…</p></div>
+    </section>
+  </main>
+
+  <dialog id="detailDialog" class="app-dialog"><div class="dialog-shell"><div class="dialog-heading"><div><p class="eyebrow">ATIVIDADE</p><h2 id="detailTitle">Detalhes</h2></div><button data-close="detailDialog" class="icon-close">×</button></div><div id="detailContent"></div></div></dialog>
+
+  <dialog id="createDialog" class="app-dialog"><form id="createForm" class="dialog-shell"><div class="dialog-heading"><div><h2>Nova atividade</h2><p>Defina a demanda sem alterar a execução das ferramentas.</p></div><button type="button" data-close="createDialog" class="icon-close">×</button></div>
+    <div class="form-grid">
+      <label class="full">Título<input id="createTitle" maxlength="180" required></label>
+      <label class="full">Descrição<textarea id="createDescription" rows="4"></textarea></label>
+      <label>Equipe<select id="createTeam" required></select></label><label>Responsável<select id="createAssignee"><option value="">Equipe, sem responsável</option></select></label>
+      <label>Prioridade<select id="createPriority"><option value="NORMAL">Normal</option><option value="LOW">Baixa</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label>
+      <label>Prazo<input id="createDue" type="datetime-local"></label>
+      <label class="full">Local<input id="createLocation" maxlength="250"></label>
+      <label>Ferramenta vinculada<select id="createTool"><option value="">Nenhuma</option></select></label>
+      <label class="check-row"><input id="createEvidence" type="checkbox"> Exigir evidência</label>
+      <label class="check-row"><input id="createNote" type="checkbox"> Exigir observação</label>
+    </div>
+    <p id="createFeedback" class="feedback"></p><div class="dialog-actions"><button type="button" class="secondary-action" data-close="createDialog">Cancelar</button><button id="createSubmit" class="primary-action" type="submit">Criar atividade</button></div>
+  </form></dialog>
+
+  <script src="auth-client.js"></script><script src="activity-offline.js"></script><script src="activities.js"></script>
+</body>
+</html>
+
