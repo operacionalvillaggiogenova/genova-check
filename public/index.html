@@ -15,7 +15,7 @@
   <main class="app-main">
     <section class="welcome-row">
       <div><p class="eyebrow">ROTINA DE HOJE</p><h1 id="welcomeName">Minhas atividades</h1><p id="userMeta" class="user-meta"></p></div>
-      <button id="toolsButton" class="tools-button" type="button">Ferramentas</button>
+      <a id="toolsButton" class="tools-button" href="/tools.html">Ferramentas</a>
     </section>
 
     <section class="metric-strip" aria-label="Resumo das atividades">
@@ -29,10 +29,6 @@
       <div id="activityList" class="activity-list"><p class="empty-state">Carregando atividades…</p></div>
     </section>
   </main>
-
-  <dialog id="toolsDialog" class="app-dialog">
-    <div class="dialog-shell"><div class="dialog-heading"><div><h2>Ferramentas</h2><p>Somente os módulos liberados para seu acesso.</p></div><button data-close="toolsDialog" class="icon-close">×</button></div><div id="toolsGrid" class="tools-grid"></div></div>
-  </dialog>
 
   <dialog id="userDialog" class="app-dialog compact-dialog">
     <div class="dialog-shell"><div class="dialog-heading"><h2>Minha conta</h2><button data-close="userDialog" class="icon-close">×</button></div>

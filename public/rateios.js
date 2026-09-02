@@ -54,7 +54,7 @@ async function submitRateio(automatic=false){
   if(!navigator.onLine){$('feedback').textContent='Sem internet. O envio ficou salvo e será sincronizado quando a conexão voltar.';return}
   const button=$('submitRateioButton');if(button)button.disabled=true;
   try{
-    $('feedback').textContent='Enviando tabela e documentos ao Adm-Rateio…';
+    $('feedback').textContent='Enviando rateio e documentos ao banco…';
     const fd=new FormData();
     fd.append('payload',JSON.stringify({...record,scans:scans.map(s=>({name:s.name,mode:s.mode}))}));
     for(let i=0;i<scans.length;i++){
@@ -66,7 +66,7 @@ async function submitRateio(automatic=false){
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.error||`Erro HTTP ${response.status}`);
     cloudPending=false;cloudSubmissionId=data.id;await saveCurrent(false);
-    $('feedback').textContent='✓ Tabela e documentos recebidos no Adm-Rateio.';
+    $('feedback').textContent='✓ Rateio e documentos enviados ao banco para análise no Adm-Rateio.';
   }catch(error){cloudPending=true;await saveCurrent(false);$('feedback').textContent='Envio pendente: '+error.message;if(!automatic)throw error}
   finally{if(button)button.disabled=false}
 }

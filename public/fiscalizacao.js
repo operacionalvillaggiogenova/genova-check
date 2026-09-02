@@ -30,7 +30,7 @@ const safe=(currentReport.name||'fiscalizacao').normalize('NFD').replace(/[\u030
 async function syncD1(){
   if(!navigator.onLine){$('feedback').textContent='Sem internet. O relatório continua salvo neste aparelho.';return}
   try{
-    await saveNow(); $('syncButton').disabled=true; $('feedback').textContent='Sincronizando fiscalização com o D1…';
+    await saveNow(); $('syncButton').disabled=true; $('feedback').textContent='Enviando fiscalização e evidências ao banco…';
     const fd=new FormData(); fd.append('payload',JSON.stringify(currentReport)); const meta=[]; let fileIndex=0;
     for(const item of currentReport.items){
       for(let j=0;j<(item.photos||[]).length;j++){
@@ -41,7 +41,7 @@ async function syncD1(){
     }
     fd.append('photoMeta',JSON.stringify(meta));
     const r=await fetch('/api/fiscalizacao/sync',{method:'POST',body:fd}); const d=await r.json(); if(!r.ok)throw new Error(d.error||'Falha ao sincronizar');
-    $('feedback').textContent=`✓ Fiscalização sincronizada com o D1. ${d.items||0} registros enviados.`;
+    $('feedback').textContent=`✓ Fiscalização e evidências enviadas ao banco. ${d.items||0} registros enviados.`;
   }catch(e){console.error(e);$('feedback').textContent='Não foi possível sincronizar: '+e.message}
   finally{$('syncButton').disabled=!navigator.onLine}
 }
