@@ -11,6 +11,12 @@ import {
 import { currentUser, invalidateAccessCache, publicUser, requireUser } from './access.js';
 
 const SESSION_DAYS = 7;
+const FIELD_CONFIG_KEY = 'field_config';
+const DEFAULT_FIELD_CONFIG = {
+  blockCount: 26,
+  commonAreas: ['Salão 1', 'Salão 2', 'Academia'],
+  rondaAreas: ['Salão 1', 'Salão 2', 'Academia', 'Brinquedoteca', 'Quadra', 'Churrasqueira Aberta', 'Espaço Pet', 'Sede', 'Portão dos Fundos']
+};
 
 const expiresAt = () => new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
 
@@ -22,6 +28,34 @@ async function audit(env, actorId, action, entityType, entityId, details = null)
     newId(), actorId || null, action, entityType, entityId || null,
     details ? JSON.stringify(details) : null, isoNow()
   ).run();
+}
+
+function fieldConfigList(value, label) {
+  if (!Array.isArray(value)) throw new HttpError(400, `Informe a lista de ${label}.`);
+  const list = [...new Set(value.map(item => cleanText(item, 100)).filter(Boolean))];
+  if (list.length > 100) throw new HttpError(400, `A lista de ${label} pode ter no máximo 100 itens.`);
+  return list;
+}
+
+function normalizeFieldConfig(value = {}) {
+  const blockCount = Number(value.blockCount);
+  if (!Number.isInteger(blockCount) || blockCount < 1 || blockCount > 200) {
+    throw new HttpError(400, 'Informe uma quantidade de blocos entre 1 e 200.');
+  }
+  return {
+    blockCount,
+    commonAreas: fieldConfigList(value.commonAreas, 'áreas comuns'),
+    rondaAreas: fieldConfigList(value.rondaAreas, 'pontos da ronda')
+  };
+}
+
+function storedFieldConfig(row) {
+  if (!row?.setting_value) return { ...DEFAULT_FIELD_CONFIG, commonAreas: [...DEFAULT_FIELD_CONFIG.commonAreas], rondaAreas: [...DEFAULT_FIELD_CONFIG.rondaAreas] };
+  try {
+    return normalizeFieldConfig(JSON.parse(row.setting_value));
+  } catch {
+    return { ...DEFAULT_FIELD_CONFIG, commonAreas: [...DEFAULT_FIELD_CONFIG.commonAreas], rondaAreas: [...DEFAULT_FIELD_CONFIG.rondaAreas] };
+  }
 }
 
 async function sessionFor(request, env, userId) {
@@ -280,6 +314,27 @@ export async function accessConfig(request, env) {
     roles: roles.results || [], teams: teams.results || [], modules: modules.results || [],
     teamModules: teamModules.results || [], routingRules: routing.results || []
   });
+}
+
+export async function fieldConfig(request, env) {
+  await requireUser(request, env, 'settings.view');
+  const row = await env.DB.prepare('SELECT setting_value,updated_at FROM system_settings WHERE setting_key=?')
+    .bind(FIELD_CONFIG_KEY).first();
+  return json({ ...storedFieldConfig(row), updatedAt: row?.updated_at || null });
+}
+
+export async function updateFieldConfig(request, env) {
+  assertSameOrigin(request);
+  const actor = await requireUser(request, env, 'settings.manage');
+  const config = normalizeFieldConfig(await readJson(request));
+  const at = isoNow();
+  await env.DB.prepare(`
+    INSERT INTO system_settings(setting_key,setting_value,updated_by,updated_at) VALUES(?,?,?,?)
+    ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value,
+      updated_by=excluded.updated_by,updated_at=excluded.updated_at
+  `).bind(FIELD_CONFIG_KEY, JSON.stringify(config), actor.id, at).run();
+  await audit(env, actor.id, 'FIELD_CONFIG_UPDATED', 'system_setting', FIELD_CONFIG_KEY, config);
+  return json({ ok: true, ...config, updatedAt: at });
 }
 
 export async function updateTeamModules(request, env, teamId) {

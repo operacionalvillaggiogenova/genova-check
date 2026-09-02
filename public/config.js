@@ -261,3 +261,30 @@ function resetBlexoConfig() {
 
   return defaults;
 }
+
+// Estrutura operacional compartilhada. Mantém uma cópia local para que as
+// ferramentas de campo continuem utilizáveis quando estiverem sem rede.
+async function blexoLoadFieldConfig() {
+  if (!navigator.onLine || !window.BlexoAuth?.request) return blexoConfig();
+  const remote = await window.BlexoAuth.request('/api/settings/field-config');
+  return saveBlexoConfig({
+    blockCount: remote.blockCount,
+    commonAreas: remote.commonAreas,
+    rondaAreas: remote.rondaAreas
+  });
+}
+
+async function blexoSaveFieldConfig(config) {
+  if (!navigator.onLine) throw new Error('Conecte-se à internet para salvar a estrutura compartilhada.');
+  if (!window.BlexoAuth?.request) throw new Error('Sua sessão não está disponível para salvar a estrutura.');
+  const remote = await window.BlexoAuth.request('/api/settings/field-config', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(config)
+  });
+  return saveBlexoConfig({
+    blockCount: remote.blockCount,
+    commonAreas: remote.commonAreas,
+    rondaAreas: remote.rondaAreas
+  });
+}

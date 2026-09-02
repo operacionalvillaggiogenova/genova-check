@@ -1,8 +1,8 @@
 import { assertSameOrigin, handleError, json } from './http.js';
 import { currentUser, requireModule, requireUser } from './access.js';
 import {
-  accessConfig, authStatus, changePassword, createUser, listUsers, login, logout, me,
-  resetUserPassword, setup, updateRoutingRules, updateTeamModules, updateUser
+  accessConfig, authStatus, changePassword, createUser, fieldConfig, listUsers, login, logout, me,
+  resetUserPassword, setup, updateFieldConfig, updateRoutingRules, updateTeamModules, updateUser
 } from './auth-api.js';
 import {
   activityDashboard, activityDiary, activityOptions, addActivityEvidence, cancelActivity, completeActivity,
@@ -583,6 +583,8 @@ export default { async fetch(request, env) {
     m=path.match(/^\/api\/admin\/users\/([^/]+)\/reset-password$/);
     if(m && request.method==='POST') return resetUserPassword(request,env,m[1]);
     if(path==='/api/admin/access-config' && request.method==='GET') return accessConfig(request,env);
+    if(path==='/api/settings/field-config' && request.method==='GET') return fieldConfig(request,env);
+    if(path==='/api/settings/field-config' && request.method==='PUT') return updateFieldConfig(request,env);
     m=path.match(/^\/api\/admin\/teams\/([^/]+)\/modules$/);
     if(m && request.method==='PUT') return updateTeamModules(request,env,m[1]);
     if(path==='/api/admin/routing' && request.method==='PUT') return updateRoutingRules(request,env);
