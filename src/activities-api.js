@@ -1,7 +1,7 @@
 import {
   HttpError, assertSameOrigin, cleanText, isoNow, json, newId, readJson
 } from './http.js';
-import { canSeeAllTeams, requireUser } from './access.js';
+import { canSeeAllTeams, publicUser, requireUser } from './access.js';
 import { sha256 } from './security.js';
 
 const SELECT_ACTIVITY = `
@@ -117,8 +117,7 @@ function listScope(user, clauses, values) {
   values.push(user.team_id, user.id);
 }
 
-export async function listActivities(request, env) {
-  const user = await requireUser(request, env, 'activities.view');
+async function listActivitiesForUser(request, env, user, options = {}) {
   const url = new URL(request.url);
   const clauses = ['1=1'];
   const values = [];
@@ -141,7 +140,7 @@ export async function listActivities(request, env) {
   if (date) {
     clauses.push('date(a.due_at)=date(?)'); values.push(date);
   }
-  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50)));
+  const limit = Math.min(100, Math.max(1, Number(options.limit || url.searchParams.get('limit') || 50)));
   const offset = Math.max(0, Number(url.searchParams.get('offset') || 0));
   const rows = await env.DB.prepare(`${SELECT_ACTIVITY}
     WHERE ${clauses.join(' AND ')}
@@ -150,11 +149,15 @@ export async function listActivities(request, env) {
       COALESCE(a.due_at,'9999-12-31'),a.created_at DESC
     LIMIT ? OFFSET ?
   `).bind(isoNow(), ...values, limit, offset).all();
-  return json({ items: rows.results || [], limit, offset });
+  return { items: rows.results || [], limit, offset };
 }
 
-export async function activityDashboard(request, env) {
+export async function listActivities(request, env) {
   const user = await requireUser(request, env, 'activities.view');
+  return json(await listActivitiesForUser(request, env, user));
+}
+
+async function dashboardForUser(env, user) {
   const clauses = ['1=1'];
   const values = [];
   listScope(user, clauses, values);
@@ -168,12 +171,33 @@ export async function activityDashboard(request, env) {
       SUM(CASE WHEN date(a.completed_at)=date(?) THEN 1 ELSE 0 END) AS completed_today
     FROM activities a WHERE ${clauses.join(' AND ')}
   `).bind(today, isoNow(), today, ...values).first();
-  return json({
+  return {
     today: Number(row?.today_total || 0),
     overdue: Number(row?.overdue || 0),
     pending: Number(row?.pending || 0),
     inProgress: Number(row?.in_progress || 0),
     completedToday: Number(row?.completed_today || 0)
+  };
+}
+
+export async function activityDashboard(request, env) {
+  const user = await requireUser(request, env, 'activities.view');
+  return json(await dashboardForUser(env, user));
+}
+
+// Resposta especializada da home: uma autenticação e duas consultas funcionais.
+export async function homeData(request, env) {
+  const started = performance.now();
+  const user = await requireUser(request, env, 'activities.view');
+  const authDuration = performance.now() - started;
+  const d1Started = performance.now();
+  const [metrics, activityPage] = await Promise.all([
+    dashboardForUser(env, user),
+    listActivitiesForUser(request, env, user, { limit: 12 })
+  ]);
+  const d1Duration = performance.now() - d1Started;
+  return json({ user: publicUser(user), metrics, activities: activityPage.items }, 200, {
+    'server-timing': `auth;dur=${authDuration.toFixed(1)}, d1;dur=${d1Duration.toFixed(1)}, total;dur=${(performance.now() - started).toFixed(1)}`
   });
 }
 

@@ -8,7 +8,7 @@ import {
   sha256,
   verifyPassword
 } from './security.js';
-import { currentUser, publicUser, requireUser } from './access.js';
+import { currentUser, invalidateAccessCache, publicUser, requireUser } from './access.js';
 
 const SESSION_DAYS = 7;
 
@@ -147,8 +147,11 @@ export async function logout(request, env) {
 export async function me(request, env) {
   const user = await requireUser(request, env);
   const at = isoNow();
-  await env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE token_hash=?')
-    .bind(at, user.sessionTokenHash).run();
+  const lastSeen = Date.parse(user.last_seen_at || '');
+  if (!Number.isFinite(lastSeen) || Date.now() - lastSeen >= 15 * 60 * 1000) {
+    await env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE token_hash=?')
+      .bind(at, user.sessionTokenHash).run();
+  }
   return json({ user: publicUser(user), product: 'blexo-suite', version: '11.0.0' });
 }
 
@@ -245,6 +248,7 @@ export async function updateUser(request, env, userId) {
   ).run();
   if (!active) await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(userId).run();
   await audit(env, actor.id, 'USER_UPDATED', 'user', userId, { active, roleCode, teamCode });
+  invalidateAccessCache();
   return json({ ok: true });
 }
 
@@ -294,6 +298,7 @@ export async function updateTeamModules(request, env, teamId) {
     `).bind(teamId, code, at));
   }
   await env.DB.batch(statements);
+  invalidateAccessCache();
   await audit(env, actor.id, 'TEAM_MODULES_UPDATED', 'team', teamId, { modules: selected });
   return json({ ok: true, modules: selected });
 }

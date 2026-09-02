@@ -2,7 +2,9 @@ import { HttpError } from './http.js';
 
 export const SESSION_COOKIE = 'blexo_session';
 export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
-const PASSWORD_ITERATIONS = 120000;
+// O runtime Web Crypto dos Workers limita PBKDF2 a 100 mil iterações.
+// Mantemos o maior custo aceito em produção para evitar falhas no cadastro.
+const PASSWORD_ITERATIONS = 100000;
 const encoder = new TextEncoder();
 
 const bytesToBase64Url = bytes => {

@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+.dev.vars
+.env
+.env.*
+.DS_Store
+Thumbs.db
+backup-d1-before-*.sql
+remote-d1-reset-*.sql
+wrangler-*.log

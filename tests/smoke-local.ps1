@@ -43,6 +43,11 @@ $me = Invoke-Json GET '/api/auth/me'
 Assert-True ($me.user.role.code -eq 'ADMIN') 'perfil do administrador'
 Assert-True ($me.user.team.code -eq 'ZELADORIA') 'equipe do administrador'
 
+$home = Invoke-Json GET '/api/home'
+Assert-True ($home.user.role.code -eq 'ADMIN') 'identidade na resposta consolidada da home'
+Assert-True ($null -ne $home.metrics.pending) 'métricas na resposta consolidada da home'
+Assert-True ($null -ne $home.activities) 'atividades na resposta consolidada da home'
+
 $access = Invoke-Json GET '/api/admin/access-config'
 Assert-True ($access.teams.Count -eq 7) 'sete equipes padrão'
 Assert-True (($access.teamModules | Where-Object { $_.team_id -eq 'team-security' -and $_.module_code -eq 'ronda' }).Count -eq 1) 'Ronda para Vigilantes'

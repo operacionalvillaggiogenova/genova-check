@@ -6,7 +6,7 @@ import {
 } from './auth-api.js';
 import {
   activityDashboard, activityDiary, activityOptions, addActivityEvidence, cancelActivity, completeActivity,
-  createActivity, downloadActivityEvidence, getActivity, listActivities, recordActivityToolResult,
+  createActivity, downloadActivityEvidence, getActivity, homeData, listActivities, recordActivityToolResult,
   startActivity, syncOperations, validateActivityToolLink
 } from './activities-api.js';
 import {
@@ -38,6 +38,12 @@ const isCommonAreaReading = code => {
 
 async function requireDb(env) {
   if (!env.DB || !env.BUCKET) throw new Error('D1/R2 ainda não configurados no Worker.');
+}
+
+async function runInBatches(env, statements, size = 50) {
+  for (let index = 0; index < statements.length; index += size) {
+    await env.DB.batch(statements.slice(index, index + size));
+  }
 }
 
 async function upsertCollection(env, payload, user) {
@@ -82,24 +88,37 @@ async function syncLeiturista(request, env, user) {
       existing?.total_value ?? 0, utility === 'gas' ? 2.2 : 1, existing?.units_per_block ?? 16,
       existing?.condo_consumption ?? 0, existing?.notes || '', existing?.created_at || t, t).run();
     if ((existing?.status || 'OPEN') === 'OPEN') {
+      const missingPrevious = [...new Set(utilityReadings
+        .filter(r => num(r.previous) === null).map(r => String(r.blockCode || ''))
+        .filter(Boolean))];
+      const previousByBlock = new Map();
+      if (missingPrevious.length) {
+        const marks = missingPrevious.map(() => '?').join(',');
+        const priorRows = await env.DB.prepare(`SELECT rr.block_code,rr.current_value
+          FROM readings rr JOIN cycles pc ON pc.id=rr.cycle_id
+          WHERE pc.utility=? AND pc.status='CLOSED' AND rr.block_code IN (${marks})
+          ORDER BY pc.closed_at DESC`).bind(utility, ...missingPrevious).all();
+        for (const prior of priorRows.results || []) {
+          if (!previousByBlock.has(prior.block_code)) previousByBlock.set(prior.block_code, prior.current_value);
+        }
+      }
+      const readingStatements = [];
       for (const r of utilityReadings) {
         let previous = num(r.previous);
         const current = num(r.current);
-        if (previous === null) {
-          const prior = await env.DB.prepare(`SELECT rr.current_value FROM readings rr JOIN cycles pc ON pc.id=rr.cycle_id WHERE pc.utility=? AND pc.status='CLOSED' AND rr.block_code=? ORDER BY pc.closed_at DESC LIMIT 1`).bind(utility,String(r.blockCode||'')).first();
-          previous = prior?.current_value ?? null;
-        }
+        if (previous === null) previous = previousByBlock.get(String(r.blockCode || '')) ?? null;
         const measured = previous !== null && current !== null ? current - previous : null;
         const rid = id();
-        await env.DB.prepare(`INSERT INTO readings
+        readingStatements.push(env.DB.prepare(`INSERT INTO readings
           (id,cycle_id,block_code,previous_value,current_value,measured_value,corrected,correction_reason,source_group_id,updated_at)
           VALUES(?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(cycle_id,block_code) DO UPDATE SET
             previous_value=excluded.previous_value,current_value=excluded.current_value,
             measured_value=excluded.measured_value,source_group_id=excluded.source_group_id,updated_at=excluded.updated_at
           WHERE readings.corrected=0 AND readings.excluded=0`).bind(
-            rid, cycleId, String(r.blockCode||''), previous, current, measured, 0, null, r.sourceGroupId||null, t).run();
+            rid, cycleId, String(r.blockCode||''), previous, current, measured, 0, null, r.sourceGroupId||null, t));
       }
+      await runInBatches(env, readingStatements);
     }
     results[utility] = cycleId;
   }
@@ -133,6 +152,10 @@ async function syncRonda(request, env, user) {
   const points=Array.isArray(payload.points)?payload.points:[];
   const files=form.getAll('photos');
   let photoMeta=[]; try{photoMeta=JSON.parse(String(form.get('photoMeta')||'[]'));}catch{}
+  const previousPoints = await env.DB.prepare('SELECT point_order,evidence_key FROM ronda_checkpoints WHERE session_id=?')
+    .bind(sessionId).all();
+  const evidenceByOrder = new Map((previousPoints.results || []).map(row => [Number(row.point_order), row.evidence_key]));
+  const checkpointStatements=[];
   for(let i=0;i<points.length;i++){
     const point=points[i]||{};
     let evidenceKey=null;
@@ -141,17 +164,15 @@ async function syncRonda(request, env, user) {
     if(file instanceof File && file.size){
       evidenceKey=`ronda/${sessionId}/${String(i).padStart(3,'0')}-${safeName(file.name||'evidencia.jpg')}`;
       await env.BUCKET.put(evidenceKey,file.stream(),{httpMetadata:{contentType:file.type||'image/jpeg'}});
-    } else {
-      const old=await env.DB.prepare('SELECT evidence_key FROM ronda_checkpoints WHERE session_id=? AND point_order=?').bind(sessionId,i).first();
-      evidenceKey=old?.evidence_key||null;
-    }
-    await env.DB.prepare(`INSERT INTO ronda_checkpoints
+    } else evidenceKey=evidenceByOrder.get(i)||null;
+    checkpointStatements.push(env.DB.prepare(`INSERT INTO ronda_checkpoints
       (id,session_id,point_order,point_name,checked_at,status,occurrence,evidence_key,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(session_id,point_order) DO UPDATE SET
       point_name=excluded.point_name,checked_at=excluded.checked_at,status=excluded.status,
       occurrence=excluded.occurrence,evidence_key=COALESCE(excluded.evidence_key,ronda_checkpoints.evidence_key),updated_at=excluded.updated_at`)
-      .bind(id(),sessionId,i,String(point.name||''),point.at||null,point.hasPhoto?'CHECKED':'PENDING',point.occurrence||null,evidenceKey,t,t).run();
+      .bind(id(),sessionId,i,String(point.name||''),point.at||null,point.hasPhoto?'CHECKED':'PENDING',point.occurrence||null,evidenceKey,t,t));
   }
+  await runInBatches(env,checkpointStatements);
   const activity=await recordActivityToolResult(env,user,{
     activityId:payload.activityId,toolCode:'ronda',recordType:'ronda_session',recordId:sessionId
   });
@@ -201,29 +222,39 @@ async function syncFiscalizacao(request, env, user) {
   const items=Array.isArray(payload.items)?payload.items:[];
   const files=form.getAll('photos');
   let meta=[]; try{meta=JSON.parse(String(form.get('photoMeta')||'[]'));}catch{}
+  const metaByPhoto = new Map(meta.map(row => [`${row.itemId}:${Number(row.photoIndex)}`, row]));
+  const existingItems = await env.DB.prepare('SELECT id,source_local_id FROM fiscalizacao_items WHERE report_id=?').bind(reportId).all();
+  const itemBySource = new Map((existingItems.results || []).map(row => [String(row.source_local_id), row.id]));
+  const existingEvidence = await env.DB.prepare(`SELECT e.r2_key FROM fiscalizacao_evidences e
+    JOIN fiscalizacao_items i ON i.id=e.item_id WHERE i.report_id=?`).bind(reportId).all();
+  const evidenceKeys = new Set((existingEvidence.results || []).map(row => row.r2_key));
+  const itemStatements=[], evidenceStatements=[];
   for(const old of items){
-    const itemIdRow=await env.DB.prepare('SELECT id FROM fiscalizacao_items WHERE report_id=? AND source_local_id=?').bind(reportId,String(old.id)).first();
-    const itemId=itemIdRow?.id||id();
-    if(itemIdRow){
-      await env.DB.prepare(`UPDATE fiscalizacao_items SET block=?,unit=?,category=?,description=?,updated_at=? WHERE id=?`)
-        .bind(old.block||'',old.unit||'',old.category||'',old.description||'',t,itemId).run();
+    const sourceId=String(old.id), itemId=itemBySource.get(sourceId)||id();
+    if(itemBySource.has(sourceId)){
+      itemStatements.push(env.DB.prepare(`UPDATE fiscalizacao_items SET block=?,unit=?,category=?,description=?,updated_at=? WHERE id=?`)
+        .bind(old.block||'',old.unit||'',old.category||'',old.description||'',t,itemId));
     } else {
-      await env.DB.prepare(`INSERT INTO fiscalizacao_items(id,report_id,block,unit,category,description,source_local_id,created_at,updated_at)
+      itemStatements.push(env.DB.prepare(`INSERT INTO fiscalizacao_items(id,report_id,block,unit,category,description,source_local_id,created_at,updated_at)
         VALUES(?,?,?,?,?,?,?,?,?)`)
-        .bind(itemId,reportId,old.block||'',old.unit||'',old.category||'',old.description||'',String(old.id),t,t).run();
+        .bind(itemId,reportId,old.block||'',old.unit||'',old.category||'',old.description||'',sourceId,t,t));
     }
     const itemPhotos=Array.isArray(old.photos)?old.photos:[];
     for(let j=0;j<itemPhotos.length;j++){
-      const p=itemPhotos[j]||{}; const m=meta.find(x=>x.itemId===old.id&&Number(x.photoIndex)===j);
+      const p=itemPhotos[j]||{}; const m=metaByPhoto.get(`${old.id}:${j}`);
       const fileIndex=m?Number(m.fileIndex):-1; const file=fileIndex>=0?files[fileIndex]:null;
       if(file instanceof File && file.size){
         const key=`fiscalizacao/${reportId}/${itemId}/${p.id||j}-${safeName(file.name||'evidencia.jpg')}`;
-        await env.BUCKET.put(key,file.stream(),{httpMetadata:{contentType:file.type||'image/jpeg'}});
-        const oldEv=await env.DB.prepare('SELECT id FROM fiscalizacao_evidences WHERE item_id=? AND r2_key=?').bind(itemId,key).first();
-        if(!oldEv) await env.DB.prepare('INSERT INTO fiscalizacao_evidences(id,item_id,r2_key,filename,content_type,size,note,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id(),itemId,key,file.name||'evidencia.jpg',file.type||'image/jpeg',file.size,p.note||'',t).run();
+        if(!evidenceKeys.has(key)) {
+          await env.BUCKET.put(key,file.stream(),{httpMetadata:{contentType:file.type||'image/jpeg'}});
+          evidenceKeys.add(key);
+          evidenceStatements.push(env.DB.prepare('INSERT INTO fiscalizacao_evidences(id,item_id,r2_key,filename,content_type,size,note,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id(),itemId,key,file.name||'evidencia.jpg',file.type||'image/jpeg',file.size,p.note||'',t));
+        }
       }
     }
   }
+  await runInBatches(env,itemStatements);
+  await runInBatches(env,evidenceStatements);
   const activity=await recordActivityToolResult(env,user,{
     activityId:payload.activityId,toolCode:'inspection',recordType:'fiscalizacao_report',recordId:reportId
   });
@@ -419,15 +450,17 @@ async function adminSaveCycle(request, env, cycleId) {
     p.reference||cycle.reference,num(p.invoiceConsumption),num(p.totalValue,0),num(p.conversionFactor,cycle.conversion_factor),Math.max(1,Math.floor(num(p.unitsPerBlock,cycle.units_per_block))),num(p.condoConsumption,0),p.notes||'',t,cycleId).run();
   if(Array.isArray(p.costs)) {
     await env.DB.prepare('DELETE FROM cost_items WHERE cycle_id=?').bind(cycleId).run();
-    for(const x of p.costs) await env.DB.prepare('INSERT INTO cost_items(id,cycle_id,description,invoice_number,due_date,amount,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)').bind(id(),cycleId,String(x.description||'Conta'),x.invoiceNumber||null,x.dueDate||null,num(x.amount,0),t,t).run();
+    await runInBatches(env,p.costs.map(x=>env.DB.prepare('INSERT INTO cost_items(id,cycle_id,description,invoice_number,due_date,amount,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)').bind(id(),cycleId,String(x.description||'Conta'),x.invoiceNumber||null,x.dueDate||null,num(x.amount,0),t,t)));
   }
   if(Array.isArray(p.readings)) {
+    const readingStatements=[];
     for(const r of p.readings) {
       const current=num(r.currentValue), previous=num(r.previousValue);
       const measured = previous!==null && current!==null ? current-previous : null;
-      await env.DB.prepare(`UPDATE readings SET previous_value=?,current_value=?,measured_value=?,corrected=?,correction_reason=?,updated_at=? WHERE id=? AND cycle_id=? AND excluded=0`).bind(
-        previous,current,measured,r.corrected?1:0,r.correctionReason||null,t,r.id,cycleId).run();
+      readingStatements.push(env.DB.prepare(`UPDATE readings SET previous_value=?,current_value=?,measured_value=?,corrected=?,correction_reason=?,updated_at=? WHERE id=? AND cycle_id=? AND excluded=0`).bind(
+        previous,current,measured,r.corrected?1:0,r.correctionReason||null,t,r.id,cycleId));
     }
+    await runInBatches(env,readingStatements);
   }
   return json(await getCycle(env,cycleId));
 }
@@ -474,6 +507,7 @@ async function writeRateioResults(env, cycleId) {
   const totalUnits = units * 26;
   const commonPoolAmount = denominator > 0 ? calc.totalValue * (calc.commonSum / denominator) : 0;
   const commonPerUnit = totalUnits > 0 ? commonPoolAmount / totalUnits : 0;
+  const resultStatements=[];
   for (const r of detail.readings) {
     const measured = Math.max(0, Number(r.measured_value || 0));
     const converted = measured * Number(cycle.conversion_factor || 1);
@@ -483,11 +517,12 @@ async function writeRateioResults(env, cycleId) {
     const blockAmount = isCommon ? 0 : amount;
     const condoAmount = isCommon ? amount : commonPerUnit;
     const apartmentAmount = isCommon ? 0 : (blockAmount / units) + commonPerUnit;
-    await env.DB.prepare(`INSERT INTO rateio_results
+    resultStatements.push(env.DB.prepare(`INSERT INTO rateio_results
       (id,cycle_id,block_code,measured_consumption,converted_consumption,percentage,block_amount,condo_amount,apartment_amount,created_at)
       VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(
-      id(), cycleId, r.block_code, measured, converted, pct, blockAmount, condoAmount, apartmentAmount, t).run();
+      id(), cycleId, r.block_code, measured, converted, pct, blockAmount, condoAmount, apartmentAmount, t));
   }
+  await runInBatches(env,resultStatements);
   return await getCycle(env,cycleId);
 }
 
@@ -534,6 +569,7 @@ export default { async fetch(request, env) {
     if(path==='/api/auth/logout' && request.method==='POST') return logout(request,env);
     if(path==='/api/auth/me' && request.method==='GET') return me(request,env);
     if(path==='/api/auth/change-password' && request.method==='POST') return changePassword(request,env);
+    if(path==='/api/home' && request.method==='GET') return homeData(request,env);
 
     // Página pública de chamados.
     if(path==='/api/public/request-options' && request.method==='GET') return publicRequestOptions(env);

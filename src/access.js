@@ -1,6 +1,33 @@
 import { HttpError, isoNow } from './http.js';
 import { readCookie, SESSION_COOKIE, sha256 } from './security.js';
 
+// Cache apenas a composição de acesso dentro do isolate do Worker. A sessão,
+// o usuário ativo e a equipe ativa continuam sendo consultados em toda rota.
+const ACCESS_CACHE_TTL_MS = 60_000;
+const accessCache = new Map();
+
+export function invalidateAccessCache() {
+  accessCache.clear();
+}
+
+function cachedAccessKey(user) {
+  return `${user.id}:${user.role_id}:${user.team_id}:${user.role_code}`;
+}
+
+async function accessFor(env, user) {
+  const key = cachedAccessKey(user);
+  const cached = accessCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { permissions: new Set(cached.permissions), modules: cached.modules };
+  }
+  const [permissions, modules] = await Promise.all([permissionSet(env, user), moduleList(env, user)]);
+  if (accessCache.size >= 200) accessCache.clear();
+  accessCache.set(key, {
+    permissions: [...permissions], modules, expiresAt: Date.now() + ACCESS_CACHE_TTL_MS
+  });
+  return { permissions, modules };
+}
+
 async function permissionSet(env, user) {
   const inherited = await env.DB.prepare(`
     SELECT p.code
@@ -50,7 +77,7 @@ export async function currentUser(request, env, includeAccess = true) {
   const tokenHash = await sha256(token);
   const at = isoNow();
   const user = await env.DB.prepare(`
-    SELECT u.id,u.name,u.username,u.email,u.active,u.must_change_password,
+    SELECT u.id,u.name,u.username,u.email,u.active,u.must_change_password,s.last_seen_at,
       u.role_id,u.team_id,r.code AS role_code,r.name AS role_name,
       t.code AS team_code,t.name AS team_name,t.activity_scope
     FROM sessions s
@@ -61,9 +88,7 @@ export async function currentUser(request, env, includeAccess = true) {
   `).bind(tokenHash, at).first();
   if (!user) return null;
   if (!includeAccess) return user;
-  const [permissions, modules] = await Promise.all([
-    permissionSet(env, user), moduleList(env, user)
-  ]);
+  const { permissions, modules } = await accessFor(env, user);
   return { ...user, permissions, modules, sessionTokenHash: tokenHash };
 }
 
