@@ -162,7 +162,7 @@ function drawWatermark(image, text) {
     ctx.textBaseline = 'alphabetic';
   }
 
-  return canvas.toDataURL('image/jpeg', .72);
+  return window.BlexoPhoto ? BlexoPhoto.encode(canvas) : canvas.toDataURL('image/jpeg', .72);
 }
 async function decodePhoto(file) {
   if (!file || !file.type || !file.type.startsWith('image/')) throw new Error('Arquivo de imagem inválido.');

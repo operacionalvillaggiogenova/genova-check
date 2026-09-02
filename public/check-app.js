@@ -89,7 +89,7 @@ function drawWatermark(image, text) {
     ctx.fillText(text, x + padding, y + boxHeight / 2);
     ctx.textBaseline = 'alphabetic';
   }
-  const src = canvas.toDataURL('image/jpeg', .88);
+  const src = window.BlexoPhoto ? BlexoPhoto.encode(canvas) : canvas.toDataURL('image/jpeg', .72);
   if (!src.startsWith('data:image/jpeg;base64,') || src.length < 1000) throw new Error('A foto foi convertida para um formato inválido.');
   return src;
 }

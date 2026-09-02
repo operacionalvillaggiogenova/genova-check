@@ -29,6 +29,8 @@ const BLEXO_DEFAULT_CONFIG = {
 
   // Modelos de fotos
   photoTemplate: 'four',
+  pdfImageMode: 'color',
+  pdfImageQuality: 'balanced',
   checkPhotoTemplate: 'four',
   leituristaPhotoTemplate: 'two',
   orcamentosPhotoTemplate: 'two',
@@ -164,6 +166,12 @@ function aplicarVersaoBlexo() {
 // ==========================================
 
 aplicarVersaoBlexo();
+
+// Carregado de forma síncrona com as configurações para que todos os módulos
+// de campo usem a mesma redução de imagem, inclusive os módulos legados.
+if (typeof document !== 'undefined' && !window.BlexoPhoto && document.readyState === 'loading') {
+  document.write('<script src="/photo-optimize.js?v=1"><\\/script>');
+}
 
 
 // ==========================================
