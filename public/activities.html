@@ -24,9 +24,7 @@
       <label>Prioridade<select id="createPriority"><option value="NORMAL">Normal</option><option value="LOW">Baixa</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label>
       <label>Prazo<input id="createDue" type="datetime-local"></label>
       <label class="full">Local<input id="createLocation" maxlength="250"></label>
-      <label>Ferramenta vinculada<select id="createTool"><option value="">Nenhuma</option></select></label>
-      <label class="check-row"><input id="createEvidence" type="checkbox"> Exigir evidência</label>
-      <label class="check-row"><input id="createNote" type="checkbox"> Exigir observação</label>
+      <label class="full">Ferramenta vinculada<select id="createTool"><option value="">Nenhuma — atividade geral</option></select><small class="field-help">Opcional. Direciona a execução para a ferramenta escolhida e registra o resultado no histórico desta atividade.</small></label>
     </div>
     <p id="createFeedback" class="feedback"></p><div class="dialog-actions"><button type="button" class="secondary-action" data-close="createDialog">Cancelar</button><button id="createSubmit" class="primary-action" type="submit">Criar atividade</button></div>
   </form></dialog>
@@ -34,4 +32,3 @@
   <script src="auth-client.js"></script><script src="activity-offline.js"></script><script src="activities.js"></script>
 </body>
 </html>
-
