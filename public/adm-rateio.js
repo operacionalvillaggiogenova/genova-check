@@ -179,6 +179,41 @@ function renderSummary(){
     ['Status',current.status==='CLOSED'?'FECHADO':'ABERTO']
   ].map(x=>`<div class="summary-box"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
 }
+function rateioExportData(){
+  const form=collect(), factor=num(form.conversionFactor)||1, total=Number(form.totalValue||0);
+  const all=(current.readings||[]).map(reading=>{
+    const previous=num(document.querySelector(`[data-prev="${reading.id}"]`)?.value??reading.previous_value);
+    const value=num(document.querySelector(`[data-current="${reading.id}"]`)?.value??reading.current_value);
+    return {...reading,common:isCommonArea(reading.block_code),consumption:previous!=null&&value!=null?Math.max(0,value-previous)*factor:0};
+  });
+  const blocks=all.filter(row=>!row.common), common=all.filter(row=>row.common);
+  const blockConsumption=blocks.reduce((sum,row)=>sum+row.consumption,0), commonConsumption=common.reduce((sum,row)=>sum+row.consumption,0);
+  const invoice=num(form.invoiceConsumption), denominator=invoice!=null&&invoice>0?invoice:blockConsumption+commonConsumption;
+  const units=Math.max(1,Number(form.unitsPerBlock||16)), blockCount=Math.max(1,Number(blexoConfig?.().blockCount||blocks.length||1));
+  const commonAmount=denominator>0?total*commonConsumption/denominator:0, commonPerUnit=commonAmount/(units*blockCount);
+  const rows=all.map(row=>{const amount=denominator>0?total*row.consumption/denominator:0;return {...row,percent:denominator>0?row.consumption/denominator*100:0,amount,perUnit:row.common?0:amount/units+commonPerUnit};});
+  return {form,total,blocks,common,blockConsumption,commonConsumption,average:blocks.length?blockConsumption/blocks.length:0,commonPerUnit,rows};
+}
+function exportName(extension){return `blexo-rateio-${current.utility==='water'?'agua':'gas'}-${current.reference||'sem-competencia'}.${extension}`}
+function exportRateioExcel(){
+  if(!current)return;const data=rateioExportData(), quote=value=>`"${String(value??'').replaceAll('"','""')}"`;
+  const heading=current.utility==='water'?'RATEIO DE ÁGUA':'RATEIO DE GÁS';
+  const lines=[[heading],[`Competência: ${data.form.reference||'—'}`],[`Valor das contas: ${money(data.total)}`],[`Consumo dos blocos: ${fmt(data.blockConsumption)}`],[`Média por bloco: ${fmt(data.average)}`],[`Observações: ${data.form.notes||'—'}`],[],['Bloco / área','Consumo','Percentual','Valor rateado','Valor por apartamento'].map(quote)];
+  data.rows.forEach(row=>lines.push([row.block_code,fmt(row.consumption),`${row.percent.toFixed(3)}%`,money(row.amount),row.common?'—':money(row.perUnit)].map(quote).join(';')));
+  const blob=new Blob(['\ufeff'+lines.map(row=>Array.isArray(row)?row.map(quote).join(';'):row).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=exportName('csv');link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function exportRateioPdf(){
+  if(!current)return;if(!window.jspdf?.jsPDF){alert('Gerador de PDF indisponível. Conecte-se e tente novamente.');return;}
+  const data=rateioExportData(),{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'}),utilityName=current.utility==='water'?'ÁGUA':'GÁS';
+  doc.setFillColor(18,48,71);doc.rect(0,0,297,20,'F');doc.setTextColor(255);doc.setFontSize(15);doc.text(`BLEXO-SUITE · RATEIO DE ${utilityName}`,12,13);doc.setTextColor(35,45,55);
+  doc.setFontSize(9);const summary=[['Competência',data.form.reference||'—'],['Valor das contas',money(data.total)],['Consumo dos blocos',fmt(data.blockConsumption)],['Média por bloco',fmt(data.average)]];
+  summary.forEach(([label,value],index)=>{const x=12+index*70;doc.setFillColor(241,246,248);doc.roundedRect(x,27,65,16,2,2,'F');doc.setFontSize(7);doc.text(label,x+3,33);doc.setFontSize(10);doc.text(String(value),x+3,40);});
+  const notes=doc.splitTextToSize(data.form.notes||'Sem observações.',267).slice(0,4);doc.setFontSize(8);doc.text('Observações:',12,51);doc.text(notes,38,51);let y=Math.max(61,51+notes.length*3.4+5);
+  const cols=[55,43,36,45,45], headers=['Bloco / área','Consumo','% do rateio','Valor rateado','R$ por apartamento'];let x=12;doc.setFillColor(230,238,242);doc.setFontSize(7.5);headers.forEach((header,index)=>{doc.rect(x,y,cols[index],6,'F');doc.text(header,x+2,y+4);x+=cols[index];});y+=6;
+  const rowHeight=Math.max(3.3,Math.min(4.7,(194-y)/Math.max(1,data.rows.length)));data.rows.forEach(row=>{x=12;const values=[row.block_code,fmt(row.consumption),`${row.percent.toFixed(3)}%`,money(row.amount),row.common?'—':money(row.perUnit)];doc.setFontSize(rowHeight<4?6.1:7.2);values.forEach((value,index)=>{doc.rect(x,y,cols[index],rowHeight);doc.text(String(value),x+2,y+rowHeight*.7,{maxWidth:cols[index]-3});x+=cols[index];});y+=rowHeight;});
+  doc.setFontSize(7);doc.text(`Consumo de áreas comuns: ${fmt(data.commonConsumption)} · Rateio de áreas comuns por apartamento: ${money(data.commonPerUnit)}`,12,202);doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`,285,202,{align:'right'});doc.save(exportName('pdf'));
+}
 async function deleteReading(readingId){
   if(!current||current.status==='CLOSED')return;
   const row=(current.readings||[]).find(r=>r.id===readingId);
@@ -190,5 +225,5 @@ async function reopen(){if(!current||current.status!=='CLOSED')return;if(!confir
 
 async function save(){if(!current||current.status==='CLOSED')return;try{$('detailFeedback').textContent='Salvando…';current=await api(`/adm-rateio/cycles/${current.id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(collect())});renderDetail();$('detailFeedback').textContent='✓ Alterações salvas.';await refresh()}catch(e){$('detailFeedback').textContent='Falha: '+e.message}}
 async function closeCycle(){if(!current||current.status==='CLOSED')return;const c=collect();if(!confirm('Fechar este ciclo? Depois do fechamento, as leituras ficarão bloqueadas para edição.'))return;try{$('detailFeedback').textContent='Conferindo e fechando…';await api(`/adm-rateio/cycles/${current.id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(c)});current=await api(`/adm-rateio/cycles/${current.id}/close`,{method:'POST'});renderDetail();await refresh();$('detailFeedback').textContent='✓ Ciclo fechado com sucesso.'}catch(e){$('detailFeedback').textContent='Não foi possível fechar: '+e.message}}
-document.querySelectorAll('[data-utility]').forEach(b=>b.onclick=()=>{utility=b.dataset.utility;document.querySelectorAll('[data-utility]').forEach(x=>x.classList.toggle('active',x===b));$('detail').hidden=true;refresh()});$('refresh').onclick=refresh;$('refreshSubmissions').onclick=refreshSubmissions;$('exportSubmissions').onclick=exportSubmissions;$('closeSubmission').onclick=()=>$('submissionDialog').close();$('save').onclick=save;$('recalculate').onclick=recalculate;$('reopenCycle').onclick=reopen;$('closeCycle').onclick=closeCycle;$('addCost').onclick=()=>{const div=document.createElement('div');div.className='cost-row';div.innerHTML='<input data-cost-desc placeholder="Descrição"><input data-cost-invoice placeholder="NF / fatura"><input data-cost-amount type="number" step="0.01" value="0"><button class="remove-cost" type="button">×</button>';$('costs').appendChild(div);div.querySelector('.remove-cost').onclick=()=>{div.remove();renderSummary()};div.querySelector('[data-cost-amount]').oninput=renderSummary;renderSummary()};
+document.querySelectorAll('[data-utility]').forEach(b=>b.onclick=()=>{utility=b.dataset.utility;document.querySelectorAll('[data-utility]').forEach(x=>x.classList.toggle('active',x===b));$('detail').hidden=true;refresh()});$('refresh').onclick=refresh;$('refreshSubmissions').onclick=refreshSubmissions;$('exportSubmissions').onclick=exportSubmissions;$('closeSubmission').onclick=()=>$('submissionDialog').close();$('save').onclick=save;$('recalculate').onclick=recalculate;$('reopenCycle').onclick=reopen;$('closeCycle').onclick=closeCycle;$('exportRateioPdf').onclick=exportRateioPdf;$('exportRateioExcel').onclick=exportRateioExcel;$('addCost').onclick=()=>{const div=document.createElement('div');div.className='cost-row';div.innerHTML='<input data-cost-desc placeholder="Descrição"><input data-cost-invoice placeholder="NF / fatura"><input data-cost-amount type="number" step="0.01" value="0"><button class="remove-cost" type="button">×</button>';$('costs').appendChild(div);div.querySelector('.remove-cost').onclick=()=>{div.remove();renderSummary()};div.querySelector('[data-cost-amount]').oninput=renderSummary;renderSummary()};
 refresh();refreshSubmissions();
