@@ -45,16 +45,26 @@ function normalizeFieldConfig(value = {}) {
   return {
     blockCount,
     commonAreas: fieldConfigList(value.commonAreas, 'áreas comuns'),
-    rondaAreas: fieldConfigList(value.rondaAreas, 'pontos da ronda')
+    rondaAreas: fieldConfigList(value.rondaAreas, 'pontos da ronda'),
+    preferences: normalizeToolPreferences(value.preferences)
   };
 }
 
+function normalizeToolPreferences(value) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) throw new HttpError(400, 'Preferências das ferramentas inválidas.');
+  let serialized;
+  try { serialized = JSON.stringify(value); } catch { throw new HttpError(400, 'Preferências das ferramentas inválidas.'); }
+  if (serialized.length > 30000) throw new HttpError(400, 'As preferências das ferramentas excedem o limite permitido.');
+  return JSON.parse(serialized);
+}
+
 function storedFieldConfig(row) {
-  if (!row?.setting_value) return { ...DEFAULT_FIELD_CONFIG, commonAreas: [...DEFAULT_FIELD_CONFIG.commonAreas], rondaAreas: [...DEFAULT_FIELD_CONFIG.rondaAreas] };
+  if (!row?.setting_value) return { ...DEFAULT_FIELD_CONFIG, commonAreas: [...DEFAULT_FIELD_CONFIG.commonAreas], rondaAreas: [...DEFAULT_FIELD_CONFIG.rondaAreas], preferences: {} };
   try {
     return normalizeFieldConfig(JSON.parse(row.setting_value));
   } catch {
-    return { ...DEFAULT_FIELD_CONFIG, commonAreas: [...DEFAULT_FIELD_CONFIG.commonAreas], rondaAreas: [...DEFAULT_FIELD_CONFIG.rondaAreas] };
+    return { ...DEFAULT_FIELD_CONFIG, commonAreas: [...DEFAULT_FIELD_CONFIG.commonAreas], rondaAreas: [...DEFAULT_FIELD_CONFIG.rondaAreas], preferences: {} };
   }
 }
 

@@ -276,6 +276,7 @@ async function blexoLoadFieldConfig() {
   if (!navigator.onLine || !window.BlexoAuth?.request) return blexoConfig();
   const remote = await window.BlexoAuth.request('/api/settings/field-config');
   return saveBlexoConfig({
+    ...(remote.preferences || {}),
     blockCount: remote.blockCount,
     commonAreas: remote.commonAreas,
     rondaAreas: remote.rondaAreas
