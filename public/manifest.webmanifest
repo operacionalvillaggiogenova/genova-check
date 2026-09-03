@@ -1,6 +1,6 @@
 {
-  "name": "blexo-suite",
-  "short_name": "blexo-suite",
+  "name": "Genova Suite",
+  "short_name": "Genova Suite",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f4f7f8",
