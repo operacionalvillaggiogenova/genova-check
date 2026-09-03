@@ -9,12 +9,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
-<body>
+<body class="tool-settings-page">
 <header class="topbar">
   <div class="brand"><span class="brand-mark">✓</span><span>Genova <strong>Suite</strong></span></div>
   <div class="top-actions"><span id="offlineStatus" class="online-status">● Online</span><button id="settingsButton" class="settings-button" aria-label="Configurações">⚙</button></div>
 </header>
-<main>
+<main hidden>
   <section class="hero"><p class="eyebrow">FERRAMENTAS DE CAMPO</p><h1>Genova Suite</h1><p>Um único aplicativo para checagem, leitura e digitalização. Os dados permanecem no aparelho e as ferramentas continuam disponíveis offline.</p></section>
   <section class="modules">
     <a class="module-card" href="/check.html"><span class="module-icon">✓</span><div><h2>Checagem e evidências</h2><p>Inspeções, fotos, observações e relatório fotográfico em PDF.</p></div><span class="arrow">→</span></a>
@@ -27,11 +27,11 @@
     <a class="module-card" href="/orcamentos.html"><span class="module-icon">▣</span><div><h2>Orçamentos</h2><p>Propostas, itens, valores e evidências fotográficas salvas para edição.</p></div><span class="arrow">→</span></a>
     <a class="module-card" href="/reembolso.html"><span class="module-icon">↺</span><div><h2>Reembolso</h2><p>Pedidos com despesas, comprovantes, justificativa e totalização automática.</p></div><span class="arrow">→</span></a>
   </section>
-  <section class="info-card"><strong>Armazenamento local</strong><span>Relatórios e fotos são salvos somente neste aparelho.</span><span id="storageStatus">Verificando armazenamento…</span></section>
+  <section class="info-card"><strong>Armazenamento local</strong><span>Relatórios e fotos são salvos somente neste aparelho.</span><span id="legacyStorageStatus">Verificando armazenamento…</span></section>
 </main>
-<dialog id="settingsDialog">
-<form method="dialog" class="settings">
-<div class="dialog-title"><h2>Configurações</h2><button class="close" value="cancel">×</button></div>
+<section id="settingsDialog" class="tool-settings-content">
+<form class="settings">
+<div class="dialog-title"><div><p class="eyebrow">CONFIGURAÇÃO OPERACIONAL</p><h2>Configurações das ferramentas</h2></div><a class="close" href="/" aria-label="Voltar">×</a></div>
 <p class="hint">As configurações abaixo são independentes para cada módulo. As cores definem a faixa azul do cabeçalho de cada tipo de relatório.</p>
 <label class="switch-row"><span><strong>Marca-d’água</strong><small>Data/hora na evidência fotográfica.</small></span><input id="watermark" type="checkbox"></label>
 <label>Miniaturas por página<select id="photoTemplate"><option value="one">1 — grande</option><option value="two">2 — padrão</option><option value="four">4 — compacto</option></select></label>
@@ -67,10 +67,10 @@
   <div class="header-config-card"><strong>Ressarcimentos</strong><p class="settings-help">Cadastre os tipos de itens e os respectivos valores. Eles aparecerão no formulário de ressarcimento.</p><div id="ressarcimentoItemsConfig" class="items-config-list"></div><button id="addRessarcimentoConfigItem" type="button" class="secondary-button">＋ Adicionar item</button></div>
 </div>
 <label>Opções de selo Leiturista <small>Uma por linha: Nome | texto ou bolinha | cor hexadecimal.</small><textarea id="sealConfig" rows="5"></textarea></label>
-<div class="settings-actions"><button id="resetSettings" type="button" class="secondary">Restaurar padrão</button><button id="saveSettings" value="default" class="primary">Salvar configurações</button></div>
+<div class="settings-actions"><button id="resetSettings" type="button" class="secondary">Restaurar padrão</button><button id="saveSettings" type="button" class="primary">Salvar configurações</button></div><p id="storageStatus" class="feedback" role="status"></p>
 </form>
-</dialog>
-<script src="auth-client.js"></script><script src="auth-guard.js"></script><script src="config.js?v=23"></script><script src="dashboard.js?v=23"></script>
+</section>
+<script src="auth-client.js"></script><script src="auth-guard.js"></script><script src="config.js?v=24"></script><script src="dashboard.js?v=24"></script>
 <script>
 // Atalho discreto para a central administrativa. Não é autenticação.
 addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='a'){e.preventDefault();location.href='/adm.html'}});
