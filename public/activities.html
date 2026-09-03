@@ -25,6 +25,7 @@
       <label>Prazo<input id="createDue" type="datetime-local"></label>
       <label class="full">Local<input id="createLocation" maxlength="250"></label>
       <label class="full">Ferramenta vinculada<select id="createTool"><option value="">Nenhuma — atividade geral</option></select><small class="field-help">Opcional. Direciona a execução para a ferramenta escolhida e registra o resultado no histórico desta atividade.</small></label>
+      <label class="full">Anexos iniciais<input id="createAttachments" type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"><small class="field-help">Fotos, PDFs e documentos de apoio. Você pode selecionar mais de um arquivo; até 8 MB por anexo.</small></label>
     </div>
     <p id="createFeedback" class="feedback"></p><div class="dialog-actions"><button type="button" class="secondary-action" data-close="createDialog">Cancelar</button><button id="createSubmit" class="primary-action" type="submit">Criar atividade</button></div>
   </form></dialog>

@@ -407,8 +407,14 @@ export async function addActivityEvidence(request, env, activityId) {
   if (!(file instanceof File) || !file.size) throw new HttpError(400, 'Selecione uma evidência.');
   if (file.size > 8 * 1024 * 1024) throw new HttpError(413, 'A evidência deve possuir no máximo 8 MB.');
   const type = (file.type || '').toLowerCase();
-  if (!type.startsWith('image/') && type !== 'application/pdf') {
-    throw new HttpError(415, 'Envie uma imagem ou PDF.');
+  const documentTypes = new Set([
+    'application/pdf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/plain'
+  ]);
+  if (!type.startsWith('image/') && !documentTypes.has(type)) {
+    throw new HttpError(415, 'Envie uma imagem, PDF, documento Word, planilha ou arquivo de texto.');
   }
   const evidenceId = cleanText(form.get('id'), 80) || newId();
   const existing = await env.DB.prepare('SELECT id FROM activity_evidence WHERE id=?').bind(evidenceId).first();
@@ -427,7 +433,7 @@ export async function addActivityEvidence(request, env, activityId) {
       description,captured_at,created_by,created_at
     ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
   `).bind(
-    evidenceId, activityId, type === 'application/pdf' ? 'DOCUMENT' : 'PHOTO', key,
+    evidenceId, activityId, type.startsWith('image/') ? 'PHOTO' : 'DOCUMENT', key,
     file.name || safe, type, file.size, checksum,
     cleanText(form.get('description'), 1000), cleanText(form.get('capturedAt'), 80) || null,
     user.id, at
